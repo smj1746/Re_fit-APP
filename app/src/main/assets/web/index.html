@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Re:fit – 객체 감지 데모</title>
+  <style>
+    body{margin:0;font:14px/1.4 system-ui,Segoe UI,Roboto,Noto Sans KR}
+    .wrap{max-width:980px;margin:0 auto;padding:12px}
+    .row{display:flex;gap:12px;flex-wrap:wrap}
+    .stage{position:relative;flex:2 1 560px;aspect-ratio:16/9;border:1px solid #ddd;border-radius:12px;overflow:hidden}
+    #img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+    #overlay{position:absolute;inset:0}
+    .side{flex:1 1 300px;border:1px solid #ddd;border-radius:12px;padding:10px}
+    button{padding:8px 10px;margin-right:6px}
+    table{width:100%;border-collapse:collapse}
+    th,td{border-bottom:1px solid #eee;padding:6px;text-align:left}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <h3>Re:fit – ML Kit 객체 감지(WebView)</h3>
+
+  <div style="margin-bottom:8px">
+    <button onclick="simulateFromSample()">샘플 실행(assets 이미지)</button>
+    <button onclick="pickImage()">이미지 선택(안드로이드)</button>
+    <button onclick="savePng()">PNG 저장</button>
+    <span id="bridge">브리지: 확인 중…</span>
+  </div>
+
+  <div class="row">
+    <div class="stage">
+      <img id="img" alt="preview"/>
+      <canvas id="overlay"></canvas>
+    </div>
+    <div class="side">
+      <b>검출 결과</b>
+      <table>
+        <thead><tr><th>라벨</th><th>신뢰도</th><th>좌표</th></tr></thead>
+        <tbody id="tbody"><tr><td colspan="3">결과 없음</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  const imgEl = document.getElementById('img');
+  const overlay = document.getElementById('overlay');
+  const ctx = overlay.getContext('2d');
+  const tbody = document.getElementById('tbody');
+  let naturalW=0, naturalH=0, scale=1, offsetX=0, offsetY=0;
+
+  function hasBridge(){ return typeof Android !== 'undefined'; }
+  document.getElementById('bridge').textContent = '브리지: ' + (hasBridge() ? '연결됨' : '미연결');
+
+  function resize(){
+    const stage = document.querySelector('.stage');
+    overlay.width = stage.clientWidth;
+    overlay.height = stage.clientHeight;
+    const W = overlay.width, H = overlay.height;
+    if(!naturalW || !naturalH) return;
+    const rImg = naturalW/naturalH, rView = W/H;
+    if(rImg > rView){ scale = W/naturalW; offsetX=0; offsetY=(H - naturalH*scale)/2; }
+    else { scale = H/naturalH; offsetY=0; offsetX=(W - naturalW*scale)/2; }
+    draw([]);
+  }
+  window.addEventListener('resize', resize);
+
+  function setImage(src, w, h){
+    naturalW=w; naturalH=h;
+    imgEl.onload = resize;
+    imgEl.src = src;
+  }
+
+  function draw(objects){
+    const W=overlay.width, H=overlay.height;
+    ctx.clearRect(0,0,W,H);
+    tbody.innerHTML='';
+    if(!objects || !objects.length){
+      tbody.innerHTML='<tr><td colspan="3">결과 없음</td></tr>'; return;
+    }
+    ctx.lineWidth = 2; ctx.font='12px system-ui';
+    objects.forEach(o=>{
+      const b = normalize(o.box);
+      const x = Math.round(offsetX + b.left*scale);
+      const y = Math.round(offsetY + b.top*scale);
+      const w = Math.round((b.right-b.left)*scale);
+      const h = Math.round((b.bottom-b.top)*scale);
+      ctx.strokeStyle='#09f'; ctx.fillStyle='rgba(0,136,255,0.15)';
+      ctx.strokeRect(x,y,w,h); ctx.fillRect(x,y,w,h);
+      const label = (o.label||'Object') + (o.confidence!=null ? ` ${(o.confidence*100).toFixed(0)}%`:'');
+      ctx.fillStyle='#000'; ctx.fillRect(x,y-16,ctx.measureText(label).width+6,14);
+      ctx.fillStyle='#fff'; ctx.fillText(label, x+3, y-4);
+      tbody.insertAdjacentHTML('beforeend',
+        `<tr><td>${escapeHtml(o.label||'Object')}</td><td>${o.confidence!=null?(o.confidence*100).toFixed(1)+'%':'-'}</td>
+        <td>${b.left|0},${b.top|0},${(b.right-b.left)|0}×${(b.bottom-b.top)|0}</td></tr>`);
+    });
+  }
+  function normalize(box){
+    let {left,top,right,bottom} = box;
+    const norm = [left,top,right,bottom].every(v => v>=0 && v<=1);
+    if(norm){ left*=naturalW; top*=naturalH; right*=naturalW; bottom*=naturalH; }
+    return {left,top,right,bottom};
+  }
+  function escapeHtml(s){return String(s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));}
+
+  // 안드로이드 네이티브 → 웹
+  window.onObjectDetection = function(imageUrl, objects, w, h){
+    setImage(imageUrl, w||1280, h||720);
+    imgEl.onload = ()=>{ resize(); draw(objects||[]); };
+  };
+
+  // 샘플 실행: 데이터 URL로 테스트 이미지 생성
+  function simulateFromSample(){
+    // 간단한 테스트 이미지를 데이터 URL로 생성 (1280x720)
+    const canvas = document.createElement('canvas');
+    canvas.width = 1280;
+    canvas.height = 720;
+    const ctx = canvas.getContext('2d');
+    
+    // 배경 그라데이션
+    const gradient = ctx.createLinearGradient(0, 0, 1280, 720);
+    gradient.addColorStop(0, '#87CEEB');
+    gradient.addColorStop(1, '#98FB98');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, 1280, 720);
+    
+    // 간단한 도형들 그리기 (사람과 병 모양)
+    // 사람 모양
+    ctx.fillStyle = '#FFB6C1';
+    ctx.fillRect(380, 160, 270, 490); // 몸통
+    ctx.fillStyle = '#FFB6C1';
+    ctx.fillRect(400, 100, 50, 80); // 머리
+    ctx.fillStyle = '#FFB6C1';
+    ctx.fillRect(350, 200, 30, 200); // 왼팔
+    ctx.fillStyle = '#FFB6C1';
+    ctx.fillRect(650, 200, 30, 200); // 오른팔
+    ctx.fillStyle = '#FFB6C1';
+    ctx.fillRect(420, 650, 30, 100); // 왼다리
+    ctx.fillStyle = '#FFB6C1';
+    ctx.fillRect(580, 650, 30, 100); // 오른다리
+    
+    // 병 모양
+    ctx.fillStyle = '#90EE90';
+    ctx.fillRect(800, 260, 60, 200); // 병 몸통
+    ctx.fillStyle = '#90EE90';
+    ctx.fillRect(810, 250, 40, 20); // 병 목
+    ctx.fillStyle = '#90EE90';
+    ctx.fillRect(805, 245, 50, 10); // 병 뚜껑
+    
+    const dataUrl = canvas.toDataURL('image/png');
+    
+    const sample = [
+      { label:'Person', confidence:0.93, box:{ left:350, top:100, right:680, bottom:750 } },
+      { label:'Bottle', confidence:0.82, box:{ left:800, top:245, right:860, bottom:460 } }
+    ];
+    
+    onObjectDetection(dataUrl, sample, 1280, 720);
+  }
+
+  // 웹→안드로이드
+  function pickImage(){
+    if(hasBridge() && Android.pickImage) Android.pickImage();
+    else alert('브리지(Android.pickImage) 없음. 샘플 실행으로 확인하세요.');
+  }
+  function savePng(){
+    const stage = document.querySelector('.stage');
+    const W = stage.clientWidth, H = stage.clientHeight;
+    const snap = document.createElement('canvas'); snap.width=W; snap.height=H;
+    const sctx = snap.getContext('2d');
+    try { sctx.drawImage(imgEl, 0,0,W,H); } catch(e){}
+    sctx.drawImage(overlay,0,0);
+    const data = snap.toDataURL('image/png');
+    if(hasBridge() && Android.saveSnapshot) Android.saveSnapshot(data);
+    else { const a=document.createElement('a'); a.href=data; a.download='detection.png'; a.click(); }
+  }
+</script>
+</body>
+</html>
