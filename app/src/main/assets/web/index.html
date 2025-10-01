@@ -3,29 +3,59 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Re:fit – 객체 감지 데모</title>
+  <title>Re:fit – 포즈 분류 & 운동 카운팅</title>
   <style>
-    body{margin:0;font:14px/1.4 system-ui,Segoe UI,Roboto,Noto Sans KR}
-    .wrap{max-width:980px;margin:0 auto;padding:12px}
-    .row{display:flex;gap:12px;flex-wrap:wrap}
-    .stage{position:relative;flex:2 1 560px;aspect-ratio:16/9;border:1px solid #ddd;border-radius:12px;overflow:hidden}
+    body{margin:0;font:14px/1.4 system-ui,Segoe UI,Roboto,Noto Sans KR;background:#f5f5f5}
+    .wrap{max-width:1200px;margin:0 auto;padding:12px}
+    .header{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;padding:20px;border-radius:12px;margin-bottom:20px;text-align:center}
+    .header h1{margin:0;font-size:28px;font-weight:600}
+    .header p{margin:8px 0 0;opacity:0.9;font-size:16px}
+    .row{display:flex;gap:16px;flex-wrap:wrap}
+    .stage{position:relative;flex:2 1 600px;aspect-ratio:16/9;border:2px solid #ddd;border-radius:12px;overflow:hidden;background:white;box-shadow:0 4px 12px rgba(0,0,0,0.1)}
     #img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
     #overlay{position:absolute;inset:0}
-    .side{flex:1 1 300px;border:1px solid #ddd;border-radius:12px;padding:10px}
-    button{padding:8px 10px;margin-right:6px}
-    table{width:100%;border-collapse:collapse}
-    th,td{border-bottom:1px solid #eee;padding:6px;text-align:left}
+    .side{flex:1 1 350px;display:flex;flex-direction:column;gap:16px}
+    .panel{background:white;border:1px solid #ddd;border-radius:12px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,0.05)}
+    .panel h3{margin:0 0 12px;color:#333;font-size:16px;font-weight:600}
+    .controls{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+    button{padding:10px 16px;border:none;border-radius:8px;background:#667eea;color:white;font-weight:500;cursor:pointer;transition:all 0.2s}
+    button:hover{background:#5a6fd8;transform:translateY(-1px)}
+    button.secondary{background:#6c757d}
+    button.secondary:hover{background:#5a6268}
+    button.success{background:#28a745}
+    button.success:hover{background:#218838}
+    button.danger{background:#dc3545}
+    button.danger:hover{background:#c82333}
+    .exercise-selector{display:flex;gap:8px;margin-bottom:16px}
+    .exercise-btn{padding:8px 12px;border:2px solid #ddd;border-radius:6px;background:white;cursor:pointer;transition:all 0.2s}
+    .exercise-btn.active{border-color:#667eea;background:#f0f2ff;color:#667eea}
+    .counter-display{text-align:center;padding:20px;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;border-radius:12px;margin-bottom:16px}
+    .counter-number{font-size:48px;font-weight:bold;margin:0}
+    .counter-label{font-size:16px;opacity:0.9;margin:8px 0 0}
+    .status-display{padding:12px;background:#f8f9fa;border-radius:8px;border-left:4px solid #667eea}
+    .feedback-display{padding:12px;background:#fff3cd;border-radius:8px;border-left:4px solid #ffc107;color:#856404}
+    .feedback-display.error{background:#f8d7da;border-left-color:#dc3545;color:#721c24}
+    .feedback-display.success{background:#d4edda;border-left-color:#28a745;color:#155724}
+    table{width:100%;border-collapse:collapse;font-size:13px}
+    th,td{border-bottom:1px solid #eee;padding:8px;text-align:left}
+    th{background:#f8f9fa;font-weight:600;color:#495057}
+    .keypoint{position:absolute;width:6px;height:6px;background:#ff4444;border-radius:50%;border:2px solid white;box-shadow:0 0 4px rgba(0,0,0,0.3)}
+    .skeleton-line{position:absolute;height:2px;background:#ff4444;box-shadow:0 0 2px rgba(0,0,0,0.3)}
   </style>
 </head>
 <body>
 <div class="wrap">
-  <h3>Re:fit – ML Kit 객체 감지(WebView)</h3>
+  <div class="header">
+    <h1>Re:fit</h1>
+    <p>AI 기반 포즈 분류 & 운동 카운팅 시스템</p>
+  </div>
 
-  <div style="margin-bottom:8px">
-    <button onclick="simulateFromSample()">샘플 실행(assets 이미지)</button>
-    <button onclick="pickImage()">이미지 선택(안드로이드)</button>
-    <button onclick="savePng()">PNG 저장</button>
-    <span id="bridge">브리지: 확인 중…</span>
+  <div class="controls">
+    <button onclick="simulateFromSample()">샘플 실행</button>
+    <button onclick="pickImage()">이미지 선택</button>
+    <button onclick="resetCounter()" class="secondary">카운터 리셋</button>
+    <button onclick="savePng()" class="secondary">PNG 저장</button>
+    <span id="bridge" style="margin-left:16px;color:#666">브리지: 확인 중…</span>
   </div>
 
   <div class="row">
@@ -34,11 +64,44 @@
       <canvas id="overlay"></canvas>
     </div>
     <div class="side">
-      <b>검출 결과</b>
-      <table>
-        <thead><tr><th>라벨</th><th>신뢰도</th><th>좌표</th></tr></thead>
-        <tbody id="tbody"><tr><td colspan="3">결과 없음</td></tr></tbody>
-      </table>
+      <div class="counter-display">
+        <p class="counter-number" id="counterNumber">0</p>
+        <p class="counter-label" id="counterLabel">반복 횟수</p>
+      </div>
+      
+      <div class="panel">
+        <h3>운동 선택</h3>
+        <div class="exercise-selector">
+          <button class="exercise-btn active" onclick="selectExercise('squat')">스쿼트</button>
+          <button class="exercise-btn" onclick="selectExercise('pushup')">푸시업</button>
+          <button class="exercise-btn" onclick="selectExercise('plank')">플랭크</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>현재 상태</h3>
+        <div class="status-display" id="statusDisplay">
+          <div><strong>운동:</strong> <span id="currentExercise">스쿼트</span></div>
+          <div><strong>상태:</strong> <span id="currentState">대기 중</span></div>
+          <div><strong>자세:</strong> <span id="currentPose">-</span></div>
+          <div><strong>신뢰도:</strong> <span id="confidence">-</span></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>피드백</h3>
+        <div class="feedback-display" id="feedbackDisplay">
+          운동을 시작해주세요
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>키포인트 정보</h3>
+        <table>
+          <thead><tr><th>부위</th><th>X</th><th>Y</th><th>신뢰도</th></tr></thead>
+          <tbody id="keypointTable"><tr><td colspan="4">키포인트 없음</td></tr></tbody>
+        </table>
+      </div>
     </div>
   </div>
 </div>
@@ -47,8 +110,18 @@
   const imgEl = document.getElementById('img');
   const overlay = document.getElementById('overlay');
   const ctx = overlay.getContext('2d');
-  const tbody = document.getElementById('tbody');
   let naturalW=0, naturalH=0, scale=1, offsetX=0, offsetY=0;
+  let currentExercise = 'squat';
+
+  // DOM 요소들
+  const counterNumber = document.getElementById('counterNumber');
+  const counterLabel = document.getElementById('counterLabel');
+  const currentExerciseSpan = document.getElementById('currentExercise');
+  const currentStateSpan = document.getElementById('currentState');
+  const currentPoseSpan = document.getElementById('currentPose');
+  const confidenceSpan = document.getElementById('confidence');
+  const feedbackDisplay = document.getElementById('feedbackDisplay');
+  const keypointTable = document.getElementById('keypointTable');
 
   function hasBridge(){ return typeof Android !== 'undefined'; }
   document.getElementById('bridge').textContent = '브리지: ' + (hasBridge() ? '연결됨' : '미연결');
@@ -62,7 +135,7 @@
     const rImg = naturalW/naturalH, rView = W/H;
     if(rImg > rView){ scale = W/naturalW; offsetX=0; offsetY=(H - naturalH*scale)/2; }
     else { scale = H/naturalH; offsetY=0; offsetX=(W - naturalW*scale)/2; }
-    draw([]);
+    drawPose({keypoints: [], classification: null, counter: {count: 0, state: 'IDLE', isGoodForm: true, feedback: ''}});
   }
   window.addEventListener('resize', resize);
 
@@ -72,42 +145,178 @@
     imgEl.src = src;
   }
 
-  function draw(objects){
+  function drawPose(poseData){
     const W=overlay.width, H=overlay.height;
     ctx.clearRect(0,0,W,H);
-    tbody.innerHTML='';
-    if(!objects || !objects.length){
-      tbody.innerHTML='<tr><td colspan="3">결과 없음</td></tr>'; return;
+    
+    // 키포인트 그리기
+    if(poseData.keypoints && poseData.keypoints.length > 0){
+      drawKeypoints(poseData.keypoints);
+      drawSkeleton(poseData.keypoints);
     }
-    ctx.lineWidth = 2; ctx.font='12px system-ui';
-    objects.forEach(o=>{
-      const b = normalize(o.box);
-      const x = Math.round(offsetX + b.left*scale);
-      const y = Math.round(offsetY + b.top*scale);
-      const w = Math.round((b.right-b.left)*scale);
-      const h = Math.round((b.bottom-b.top)*scale);
-      ctx.strokeStyle='#09f'; ctx.fillStyle='rgba(0,136,255,0.15)';
-      ctx.strokeRect(x,y,w,h); ctx.fillRect(x,y,w,h);
-      const label = (o.label||'Object') + (o.confidence!=null ? ` ${(o.confidence*100).toFixed(0)}%`:'');
-      ctx.fillStyle='#000'; ctx.fillRect(x,y-16,ctx.measureText(label).width+6,14);
-      ctx.fillStyle='#fff'; ctx.fillText(label, x+3, y-4);
-      tbody.insertAdjacentHTML('beforeend',
-        `<tr><td>${escapeHtml(o.label||'Object')}</td><td>${o.confidence!=null?(o.confidence*100).toFixed(1)+'%':'-'}</td>
-        <td>${b.left|0},${b.top|0},${(b.right-b.left)|0}×${(b.bottom-b.top)|0}</td></tr>`);
+    
+    // UI 업데이트
+    updateUI(poseData);
+  }
+
+  function drawKeypoints(keypoints){
+    ctx.fillStyle = '#ff4444';
+    ctx.strokeStyle = 'white';
+    ctx.lineWidth = 2;
+    
+    keypoints.forEach((kp, index) => {
+      if(kp.confidence > 0.3){
+        const x = Math.round(offsetX + kp.x * scale);
+        const y = Math.round(offsetY + kp.y * scale);
+        
+        ctx.beginPath();
+        ctx.arc(x, y, 4, 0, 2 * Math.PI);
+        ctx.fill();
+        ctx.stroke();
+        
+        // 키포인트 번호 표시
+        ctx.fillStyle = 'white';
+        ctx.font = '10px system-ui';
+        ctx.fillText(index.toString(), x + 6, y - 6);
+        ctx.fillStyle = '#ff4444';
+      }
     });
   }
-  function normalize(box){
-    let {left,top,right,bottom} = box;
-    const norm = [left,top,right,bottom].every(v => v>=0 && v<=1);
-    if(norm){ left*=naturalW; top*=naturalH; right*=naturalW; bottom*=naturalH; }
-    return {left,top,right,bottom};
+
+  function drawSkeleton(keypoints){
+    if(keypoints.length < 17) return;
+    
+    const connections = [
+      [0, 1], [0, 2], [1, 3], [2, 4], // 머리
+      [5, 6], [5, 7], [6, 8], [7, 9], [8, 10], // 팔
+      [5, 11], [6, 12], [11, 12], // 몸통
+      [11, 13], [12, 14], [13, 15], [14, 16] // 다리
+    ];
+    
+    ctx.strokeStyle = '#ff4444';
+    ctx.lineWidth = 2;
+    
+    connections.forEach(([start, end]) => {
+      const startKp = keypoints[start];
+      const endKp = keypoints[end];
+      
+      if(startKp.confidence > 0.3 && endKp.confidence > 0.3){
+        const startX = Math.round(offsetX + startKp.x * scale);
+        const startY = Math.round(offsetY + startKp.y * scale);
+        const endX = Math.round(offsetX + endKp.x * scale);
+        const endY = Math.round(offsetY + endKp.y * scale);
+        
+        ctx.beginPath();
+        ctx.moveTo(startX, startY);
+        ctx.lineTo(endX, endY);
+        ctx.stroke();
+      }
+    });
   }
-  function escapeHtml(s){return String(s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));}
+
+  function updateUI(poseData){
+    // 카운터 업데이트
+    counterNumber.textContent = poseData.counter.count || 0;
+    
+    // 상태 업데이트
+    currentStateSpan.textContent = getStateText(poseData.counter.state);
+    currentPoseSpan.textContent = poseData.classification ? poseData.classification.class : '-';
+    confidenceSpan.textContent = poseData.classification ? 
+      (poseData.classification.confidence * 100).toFixed(1) + '%' : '-';
+    
+    // 피드백 업데이트
+    updateFeedback(poseData.counter);
+    
+    // 키포인트 테이블 업데이트
+    updateKeypointTable(poseData.keypoints);
+  }
+
+  function getStateText(state){
+    const stateMap = {
+      'IDLE': '대기 중',
+      'DOWN_PHASE': '하강 단계',
+      'UP_PHASE': '상승 단계',
+      'HOLD_PHASE': '유지 단계'
+    };
+    return stateMap[state] || state;
+  }
+
+  function updateFeedback(counter){
+    feedbackDisplay.textContent = counter.feedback || '운동을 시작해주세요';
+    feedbackDisplay.className = 'feedback-display';
+    
+    if(!counter.isGoodForm){
+      feedbackDisplay.classList.add('error');
+    } else if(counter.count > 0){
+      feedbackDisplay.classList.add('success');
+    }
+  }
+
+  function updateKeypointTable(keypoints){
+    if(!keypoints || keypoints.length === 0){
+      keypointTable.innerHTML = '<tr><td colspan="4">키포인트 없음</td></tr>';
+      return;
+    }
+    
+    const keypointNames = [
+      '코', '왼쪽눈', '오른쪽눈', '왼쪽귀', '오른쪽귀',
+      '왼쪽어깨', '오른쪽어깨', '왼쪽팔꿈치', '오른쪽팔꿈치',
+      '왼쪽손목', '오른쪽손목', '왼쪽엉덩이', '오른쪽엉덩이',
+      '왼쪽무릎', '오른쪽무릎', '왼쪽발목', '오른쪽발목'
+    ];
+    
+    keypointTable.innerHTML = '';
+    keypoints.forEach((kp, index) => {
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td>${keypointNames[index] || index}</td>
+        <td>${kp.x.toFixed(1)}</td>
+        <td>${kp.y.toFixed(1)}</td>
+        <td>${(kp.confidence * 100).toFixed(1)}%</td>
+      `;
+      keypointTable.appendChild(row);
+    });
+  }
+
+  function selectExercise(exercise){
+    currentExercise = exercise;
+    currentExerciseSpan.textContent = getExerciseText(exercise);
+    
+    // 버튼 상태 업데이트
+    document.querySelectorAll('.exercise-btn').forEach(btn => btn.classList.remove('active'));
+    event.target.classList.add('active');
+    
+    // Android에 운동 타입 전달
+    if(hasBridge() && Android.setExerciseType){
+      Android.setExerciseType(exercise);
+    }
+  }
+
+  function getExerciseText(exercise){
+    const exerciseMap = {
+      'squat': '스쿼트',
+      'pushup': '푸시업',
+      'plank': '플랭크'
+    };
+    return exerciseMap[exercise] || exercise;
+  }
+
+  function resetCounter(){
+    if(hasBridge() && Android.resetCounter){
+      Android.resetCounter();
+    }
+    counterNumber.textContent = '0';
+    currentStateSpan.textContent = '대기 중';
+    currentPoseSpan.textContent = '-';
+    confidenceSpan.textContent = '-';
+    feedbackDisplay.textContent = '운동을 시작해주세요';
+    feedbackDisplay.className = 'feedback-display';
+  }
 
   // 안드로이드 네이티브 → 웹
-  window.onObjectDetection = function(imageUrl, objects, w, h){
+  window.onPoseDetection = function(imageUrl, poseData, w, h){
     setImage(imageUrl, w||1280, h||720);
-    imgEl.onload = ()=>{ resize(); draw(objects||[]); };
+    imgEl.onload = ()=>{ resize(); drawPose(poseData||{}); };
   };
 
   // 샘플 실행: 데이터 URL로 테스트 이미지 생성
@@ -125,37 +334,62 @@
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, 1280, 720);
     
-    // 간단한 도형들 그리기 (사람과 병 모양)
-    // 사람 모양
+    // 간단한 사람 모양 그리기 (스쿼트 자세)
     ctx.fillStyle = '#FFB6C1';
-    ctx.fillRect(380, 160, 270, 490); // 몸통
-    ctx.fillStyle = '#FFB6C1';
-    ctx.fillRect(400, 100, 50, 80); // 머리
-    ctx.fillStyle = '#FFB6C1';
-    ctx.fillRect(350, 200, 30, 200); // 왼팔
-    ctx.fillStyle = '#FFB6C1';
-    ctx.fillRect(650, 200, 30, 200); // 오른팔
-    ctx.fillStyle = '#FFB6C1';
-    ctx.fillRect(420, 650, 30, 100); // 왼다리
-    ctx.fillStyle = '#FFB6C1';
-    ctx.fillRect(580, 650, 30, 100); // 오른다리
+    // 머리
+    ctx.beginPath();
+    ctx.arc(640, 150, 40, 0, 2 * Math.PI);
+    ctx.fill();
     
-    // 병 모양
-    ctx.fillStyle = '#90EE90';
-    ctx.fillRect(800, 260, 60, 200); // 병 몸통
-    ctx.fillStyle = '#90EE90';
-    ctx.fillRect(810, 250, 40, 20); // 병 목
-    ctx.fillStyle = '#90EE90';
-    ctx.fillRect(805, 245, 50, 10); // 병 뚜껑
+    // 몸통
+    ctx.fillRect(600, 190, 80, 200);
+    
+    // 팔
+    ctx.fillRect(550, 200, 30, 150);
+    ctx.fillRect(700, 200, 30, 150);
+    
+    // 다리 (스쿼트 자세)
+    ctx.fillRect(610, 390, 25, 200);
+    ctx.fillRect(645, 390, 25, 200);
     
     const dataUrl = canvas.toDataURL('image/png');
     
-    const sample = [
-      { label:'Person', confidence:0.93, box:{ left:350, top:100, right:680, bottom:750 } },
-      { label:'Bottle', confidence:0.82, box:{ left:800, top:245, right:860, bottom:460 } }
+    // 샘플 키포인트 데이터 (스쿼트 자세)
+    const sampleKeypoints = [
+      {x: 640, y: 110, confidence: 0.95}, // 코
+      {x: 625, y: 120, confidence: 0.90}, // 왼쪽눈
+      {x: 655, y: 120, confidence: 0.90}, // 오른쪽눈
+      {x: 610, y: 130, confidence: 0.85}, // 왼쪽귀
+      {x: 670, y: 130, confidence: 0.85}, // 오른쪽귀
+      {x: 580, y: 200, confidence: 0.90}, // 왼쪽어깨
+      {x: 700, y: 200, confidence: 0.90}, // 오른쪽어깨
+      {x: 550, y: 300, confidence: 0.85}, // 왼쪽팔꿈치
+      {x: 730, y: 300, confidence: 0.85}, // 오른쪽팔꿈치
+      {x: 520, y: 400, confidence: 0.80}, // 왼쪽손목
+      {x: 760, y: 400, confidence: 0.80}, // 오른쪽손목
+      {x: 600, y: 350, confidence: 0.95}, // 왼쪽엉덩이
+      {x: 680, y: 350, confidence: 0.95}, // 오른쪽엉덩이
+      {x: 610, y: 500, confidence: 0.90}, // 왼쪽무릎
+      {x: 670, y: 500, confidence: 0.90}, // 오른쪽무릎
+      {x: 610, y: 650, confidence: 0.85}, // 왼쪽발목
+      {x: 670, y: 650, confidence: 0.85}  // 오른쪽발목
     ];
     
-    onObjectDetection(dataUrl, sample, 1280, 720);
+    const samplePoseData = {
+      keypoints: sampleKeypoints,
+      classification: {
+        class: 'squat_down',
+        confidence: 0.87
+      },
+      counter: {
+        count: 0,
+        state: 'DOWN_PHASE',
+        isGoodForm: true,
+        feedback: '스쿼트 하강 중...'
+      }
+    };
+    
+    onPoseDetection(dataUrl, samplePoseData, 1280, 720);
   }
 
   // 웹→안드로이드
@@ -163,16 +397,26 @@
     if(hasBridge() && Android.pickImage) Android.pickImage();
     else alert('브리지(Android.pickImage) 없음. 샘플 실행으로 확인하세요.');
   }
+  
   function savePng(){
     const stage = document.querySelector('.stage');
     const W = stage.clientWidth, H = stage.clientHeight;
-    const snap = document.createElement('canvas'); snap.width=W; snap.height=H;
+    const snap = document.createElement('canvas'); 
+    snap.width = W; 
+    snap.height = H;
     const sctx = snap.getContext('2d');
-    try { sctx.drawImage(imgEl, 0,0,W,H); } catch(e){}
-    sctx.drawImage(overlay,0,0);
+    try { 
+      sctx.drawImage(imgEl, 0, 0, W, H); 
+    } catch(e){}
+    sctx.drawImage(overlay, 0, 0);
     const data = snap.toDataURL('image/png');
     if(hasBridge() && Android.saveSnapshot) Android.saveSnapshot(data);
-    else { const a=document.createElement('a'); a.href=data; a.download='detection.png'; a.click(); }
+    else { 
+      const a = document.createElement('a'); 
+      a.href = data; 
+      a.download = 'pose_detection.png'; 
+      a.click(); 
+    }
   }
 </script>
 </body>

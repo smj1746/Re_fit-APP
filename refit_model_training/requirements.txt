@@ -1,0 +1,38 @@
+# Re_fit Custom Pose Classification Model Training Dependencies
+# Compatible with Python 3.8-3.12 (Python 3.13 has compatibility issues)
+
+# TensorFlow and related packages
+tensorflow>=2.10.0,<2.16.0
+tensorflow-hub>=0.12.0
+tensorflow-model-optimization>=0.7.0
+# tensorflow-addons>=0.19.0  # Not compatible with Python 3.13
+
+# Data processing and analysis
+numpy>=1.21.0,<2.0.0
+pandas>=1.3.0,<3.0.0
+scikit-learn>=1.0.0,<1.4.0
+
+# Image processing
+opencv-python>=4.5.0,<5.0.0
+Pillow>=8.3.0,<11.0.0
+
+# Visualization
+matplotlib>=3.5.0,<3.8.0
+seaborn>=0.11.0,<0.13.0
+
+# Utilities
+tqdm>=4.62.0,<5.0.0
+# pathlib2>=2.3.0  # Not needed for Python 3.4+
+
+# Jupyter Notebook (optional)
+jupyter>=1.0.0,<2.0.0
+ipykernel>=6.0.0,<7.0.0
+
+# Model optimization (optional)
+# onnx>=1.12.0
+# onnxruntime>=1.12.0
+
+# Additional dependencies for better compatibility
+protobuf>=3.20.0,<4.0.0
+h5py>=3.1.0,<4.0.0
+

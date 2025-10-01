@@ -50,7 +50,17 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
 
+    // ML Kit 의존성
+    implementation("com.google.mlkit:pose-detection:18.0.0-beta3")  // ML Kit 포즈 감지
+    implementation("com.google.mlkit:pose-detection-accurate:18.0.0-beta3")  // 정확한 포즈 감지
     implementation("com.google.mlkit:object-detection:17.0.0")   // ML Kit 객체 감지
+    
+    // TensorFlow Lite 의존성
+    implementation("org.tensorflow:tensorflow-lite:2.13.0")
+    implementation("org.tensorflow:tensorflow-lite-support:0.4.4")
+    implementation("org.tensorflow:tensorflow-lite-metadata:0.4.4")
+    
+    // 기타 의존성
     implementation("androidx.activity:activity-compose:1.9.0")   // Compose에서 Activity Result 사용
     implementation("androidx.webkit:webkit:1.8.0")              // WebView 지원
 
