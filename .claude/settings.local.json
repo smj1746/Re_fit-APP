@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(\"/c/Users/shuva/AppData/Local/Android/Sdk/platform-tools/adb.exe\" logcat -d)",
+      "Bash(gradlew.bat:*)",
+      "Bash(.gradlew.bat:*)",
+      "Bash(powershell.exe -Command \"cd ''C:\\Users\\shuva\\AndroidStudioProjects\\Re_fit''; .\\gradlew.bat --version\")",
+      "Bash(powershell.exe -Command \"cd ''C:\\Users\\shuva\\AndroidStudioProjects\\Re_fit''; .\\gradlew.bat clean build\")",
+      "Bash(powershell.exe -Command \"cd ''C:\\Users\\shuva\\AndroidStudioProjects\\Re_fit''; .\\gradlew.bat --stop\")",
+      "Bash(powershell.exe -Command \"cd ''C:\\Users\\shuva\\AndroidStudioProjects\\Re_fit''; .\\gradlew.bat tasks\")",
+      "Bash(java:*)",
+      "Bash(powershell.exe -Command \"echo $env:JAVA_HOME\")",
+      "Bash(dir:*)",
+      "Bash(powershell.exe -Command \"Get-ChildItem -Path ''C:\\'' -Filter jbr -Recurse -Directory -ErrorAction SilentlyContinue | Select-Object -First 3 FullName\")",
+      "Bash(powershell.exe -Command \"cd ''C:\\Users\\shuva\\AndroidStudioProjects\\Re_fit''; .\\gradlew.bat clean\")",
+      "Bash(powershell.exe -Command \"cd ''C:\\Users\\shuva\\AndroidStudioProjects\\Re_fit''; $env:JAVA_HOME=''''; .\\gradlew.bat --version\")",
+      "Bash(powershell.exe -Command \"cd ''C:\\Users\\shuva\\AndroidStudioProjects\\Re_fit''; .\\gradlew.bat assembleDebug\")",
+      "Bash(powershell.exe -Command \"$env:JAVA_HOME=''''; cd ''C:\\Users\\shuva\\AndroidStudioProjects\\Re_fit''; .\\gradlew.bat assembleDebug\")",
+      "Bash(powershell.exe -Command \"Remove-Item Env:\\JAVA_HOME -ErrorAction SilentlyContinue; cd ''C:\\Users\\shuva\\AndroidStudioProjects\\Re_fit''; .\\gradlew.bat assembleDebug\")",
+      "Bash(powershell.exe -Command \"$env:JAVA_HOME=''C:\\Program Files\\Android\\Android Studio\\jre''; cd ''C:\\Users\\shuva\\AndroidStudioProjects\\Re_fit''; .\\gradlew.bat assembleDebug\")",
+      "Bash(powershell.exe:*)",
+      "Bash(cmd.exe /c \"C:\\Users\\shuva\\AndroidStudioProjects\\Re_fit\\test_gradle.bat\")",
+      "Bash(cmd.exe /c \"set JAVA_HOME=C:\\Program Files\\Android\\Android Studio\\jre && gradlew.bat clean assembleDebug --info 2>&1 | head -100\")",
+      "Bash(\"%LOCALAPPDATA%\\Android\\Sdk\\platform-tools\\adb.exe\" devices)",
+      "Bash(findstr:*)",
+      "Bash(cmd.exe /c \"gradlew.bat assembleDebug 2>&1 | findstr /I /C:\"\"BUILD\"\" /C:\"\"error\"\" /C:\"\"warning\"\" /C:\"\"FAILED\"\" /C:\"\"SUCCESS\"\"\")",
+      "Bash(cmd.exe /c \"gradlew.bat assembleDebug\")",
+      "Bash(git add:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

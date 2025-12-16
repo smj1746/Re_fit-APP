@@ -1,423 +1,488 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Re:fit – 포즈 분류 & 운동 카운팅</title>
-  <style>
-    body{margin:0;font:14px/1.4 system-ui,Segoe UI,Roboto,Noto Sans KR;background:#f5f5f5}
-    .wrap{max-width:1200px;margin:0 auto;padding:12px}
-    .header{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;padding:20px;border-radius:12px;margin-bottom:20px;text-align:center}
-    .header h1{margin:0;font-size:28px;font-weight:600}
-    .header p{margin:8px 0 0;opacity:0.9;font-size:16px}
-    .row{display:flex;gap:16px;flex-wrap:wrap}
-    .stage{position:relative;flex:2 1 600px;aspect-ratio:16/9;border:2px solid #ddd;border-radius:12px;overflow:hidden;background:white;box-shadow:0 4px 12px rgba(0,0,0,0.1)}
-    #img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
-    #overlay{position:absolute;inset:0}
-    .side{flex:1 1 350px;display:flex;flex-direction:column;gap:16px}
-    .panel{background:white;border:1px solid #ddd;border-radius:12px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,0.05)}
-    .panel h3{margin:0 0 12px;color:#333;font-size:16px;font-weight:600}
-    .controls{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
-    button{padding:10px 16px;border:none;border-radius:8px;background:#667eea;color:white;font-weight:500;cursor:pointer;transition:all 0.2s}
-    button:hover{background:#5a6fd8;transform:translateY(-1px)}
-    button.secondary{background:#6c757d}
-    button.secondary:hover{background:#5a6268}
-    button.success{background:#28a745}
-    button.success:hover{background:#218838}
-    button.danger{background:#dc3545}
-    button.danger:hover{background:#c82333}
-    .exercise-selector{display:flex;gap:8px;margin-bottom:16px}
-    .exercise-btn{padding:8px 12px;border:2px solid #ddd;border-radius:6px;background:white;cursor:pointer;transition:all 0.2s}
-    .exercise-btn.active{border-color:#667eea;background:#f0f2ff;color:#667eea}
-    .counter-display{text-align:center;padding:20px;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;border-radius:12px;margin-bottom:16px}
-    .counter-number{font-size:48px;font-weight:bold;margin:0}
-    .counter-label{font-size:16px;opacity:0.9;margin:8px 0 0}
-    .status-display{padding:12px;background:#f8f9fa;border-radius:8px;border-left:4px solid #667eea}
-    .feedback-display{padding:12px;background:#fff3cd;border-radius:8px;border-left:4px solid #ffc107;color:#856404}
-    .feedback-display.error{background:#f8d7da;border-left-color:#dc3545;color:#721c24}
-    .feedback-display.success{background:#d4edda;border-left-color:#28a745;color:#155724}
-    table{width:100%;border-collapse:collapse;font-size:13px}
-    th,td{border-bottom:1px solid #eee;padding:8px;text-align:left}
-    th{background:#f8f9fa;font-weight:600;color:#495057}
-    .keypoint{position:absolute;width:6px;height:6px;background:#ff4444;border-radius:50%;border:2px solid white;box-shadow:0 0 4px rgba(0,0,0,0.3)}
-    .skeleton-line{position:absolute;height:2px;background:#ff4444;box-shadow:0 0 2px rgba(0,0,0,0.3)}
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Re:fit - AI 포즈 분석</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            width: 100%;
+            max-width: 600px;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            color: #333;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        .header p {
+            color: #666;
+            font-size: 1.1rem;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 25px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-width: 120px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .btn-secondary {
+            background: #f8f9fa;
+            color: #333;
+            border: 2px solid #dee2e6;
+        }
+        
+        .btn-danger {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+            color: white;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .camera-container {
+            position: relative;
+            background: #000;
+            border-radius: 15px;
+            overflow: hidden;
+            margin-bottom: 30px;
+            min-height: 300px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        #video {
+            width: 100%;
+            height: auto;
+            max-height: 400px;
+            object-fit: cover;
+        }
+        
+        #canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        
+        .placeholder {
+            color: #fff;
+            font-size: 1.2rem;
+            text-align: center;
+            padding: 50px;
+        }
+        
+        .status {
+            text-align: center;
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 10px;
+            font-weight: bold;
+        }
+        
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        
+        .counter {
+            text-align: center;
+            margin-top: 20px;
+        }
+        
+        .counter h2 {
+            font-size: 3rem;
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+        
+        .counter p {
+            font-size: 1.2rem;
+            color: #666;
+        }
+        
+        .pose-info {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        
+        .pose-info h3 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+        
+        .pose-data {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+        }
+        
+        .pose-item {
+            background: white;
+            padding: 10px;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        .pose-item strong {
+            display: block;
+            color: #667eea;
+            font-size: 0.9rem;
+        }
+        
+        .pose-item span {
+            color: #333;
+            font-size: 1.1rem;
+        }
+    </style>
 </head>
 <body>
-<div class="wrap">
-  <div class="header">
-    <h1>Re:fit</h1>
-    <p>AI 기반 포즈 분류 & 운동 카운팅 시스템</p>
-  </div>
-
-  <div class="controls">
-    <button onclick="simulateFromSample()">샘플 실행</button>
-    <button onclick="pickImage()">이미지 선택</button>
-    <button onclick="resetCounter()" class="secondary">카운터 리셋</button>
-    <button onclick="savePng()" class="secondary">PNG 저장</button>
-    <span id="bridge" style="margin-left:16px;color:#666">브리지: 확인 중…</span>
-  </div>
-
-  <div class="row">
-    <div class="stage">
-      <img id="img" alt="preview"/>
-      <canvas id="overlay"></canvas>
+    <div class="container">
+        <div class="header">
+            <h1>🏋️ Re:fit</h1>
+            <p>실시간 AI 포즈 분석 및 운동 카운팅</p>
+        </div>
+        
+        <div class="controls">
+            <button id="startBtn" class="btn btn-primary">📸 실시간 카메라</button>
+            <button id="stopBtn" class="btn btn-danger" disabled>⏹️ 정지</button>
+            <button id="resetBtn" class="btn btn-secondary">🔄 리셋</button>
+        </div>
+        
+        <div id="status" class="status info">
+            실시간 카메라 버튼을 클릭하여 시작하세요
+        </div>
+        
+        <div class="camera-container">
+            <video id="video" autoplay muted playsinline style="display: none;"></video>
+            <canvas id="canvas"></canvas>
+            <div id="placeholder" class="placeholder">
+                카메라가 시작되면 여기에 영상이 표시됩니다
+            </div>
+        </div>
+        
+        <div class="counter">
+            <h2 id="counter">0</h2>
+            <p>운동 횟수</p>
+        </div>
+        
+        <div class="pose-info">
+            <h3>📊 포즈 분석 정보</h3>
+            <div class="pose-data">
+                <div class="pose-item">
+                    <strong>신뢰도</strong>
+                    <span id="confidence">0%</span>
+                </div>
+                <div class="pose-item">
+                    <strong>감지된 관절</strong>
+                    <span id="keypoints">0</span>
+                </div>
+                <div class="pose-item">
+                    <strong>운동 상태</strong>
+                    <span id="exercise-state">대기중</span>
+                </div>
+                <div class="pose-item">
+                    <strong>FPS</strong>
+                    <span id="fps">0</span>
+                </div>
+            </div>
+        </div>
     </div>
-    <div class="side">
-      <div class="counter-display">
-        <p class="counter-number" id="counterNumber">0</p>
-        <p class="counter-label" id="counterLabel">반복 횟수</p>
-      </div>
-      
-      <div class="panel">
-        <h3>운동 선택</h3>
-        <div class="exercise-selector">
-          <button class="exercise-btn active" onclick="selectExercise('squat')">스쿼트</button>
-          <button class="exercise-btn" onclick="selectExercise('pushup')">푸시업</button>
-          <button class="exercise-btn" onclick="selectExercise('plank')">플랭크</button>
-        </div>
-      </div>
 
-      <div class="panel">
-        <h3>현재 상태</h3>
-        <div class="status-display" id="statusDisplay">
-          <div><strong>운동:</strong> <span id="currentExercise">스쿼트</span></div>
-          <div><strong>상태:</strong> <span id="currentState">대기 중</span></div>
-          <div><strong>자세:</strong> <span id="currentPose">-</span></div>
-          <div><strong>신뢰도:</strong> <span id="confidence">-</span></div>
-        </div>
-      </div>
-
-      <div class="panel">
-        <h3>피드백</h3>
-        <div class="feedback-display" id="feedbackDisplay">
-          운동을 시작해주세요
-        </div>
-      </div>
-
-      <div class="panel">
-        <h3>키포인트 정보</h3>
-        <table>
-          <thead><tr><th>부위</th><th>X</th><th>Y</th><th>신뢰도</th></tr></thead>
-          <tbody id="keypointTable"><tr><td colspan="4">키포인트 없음</td></tr></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-</div>
-
-<script>
-  const imgEl = document.getElementById('img');
-  const overlay = document.getElementById('overlay');
-  const ctx = overlay.getContext('2d');
-  let naturalW=0, naturalH=0, scale=1, offsetX=0, offsetY=0;
-  let currentExercise = 'squat';
-
-  // DOM 요소들
-  const counterNumber = document.getElementById('counterNumber');
-  const counterLabel = document.getElementById('counterLabel');
-  const currentExerciseSpan = document.getElementById('currentExercise');
-  const currentStateSpan = document.getElementById('currentState');
-  const currentPoseSpan = document.getElementById('currentPose');
-  const confidenceSpan = document.getElementById('confidence');
-  const feedbackDisplay = document.getElementById('feedbackDisplay');
-  const keypointTable = document.getElementById('keypointTable');
-
-  function hasBridge(){ return typeof Android !== 'undefined'; }
-  document.getElementById('bridge').textContent = '브리지: ' + (hasBridge() ? '연결됨' : '미연결');
-
-  function resize(){
-    const stage = document.querySelector('.stage');
-    overlay.width = stage.clientWidth;
-    overlay.height = stage.clientHeight;
-    const W = overlay.width, H = overlay.height;
-    if(!naturalW || !naturalH) return;
-    const rImg = naturalW/naturalH, rView = W/H;
-    if(rImg > rView){ scale = W/naturalW; offsetX=0; offsetY=(H - naturalH*scale)/2; }
-    else { scale = H/naturalH; offsetY=0; offsetX=(W - naturalW*scale)/2; }
-    drawPose({keypoints: [], classification: null, counter: {count: 0, state: 'IDLE', isGoodForm: true, feedback: ''}});
-  }
-  window.addEventListener('resize', resize);
-
-  function setImage(src, w, h){
-    naturalW=w; naturalH=h;
-    imgEl.onload = resize;
-    imgEl.src = src;
-  }
-
-  function drawPose(poseData){
-    const W=overlay.width, H=overlay.height;
-    ctx.clearRect(0,0,W,H);
-    
-    // 키포인트 그리기
-    if(poseData.keypoints && poseData.keypoints.length > 0){
-      drawKeypoints(poseData.keypoints);
-      drawSkeleton(poseData.keypoints);
-    }
-    
-    // UI 업데이트
-    updateUI(poseData);
-  }
-
-  function drawKeypoints(keypoints){
-    ctx.fillStyle = '#ff4444';
-    ctx.strokeStyle = 'white';
-    ctx.lineWidth = 2;
-    
-    keypoints.forEach((kp, index) => {
-      if(kp.confidence > 0.3){
-        const x = Math.round(offsetX + kp.x * scale);
-        const y = Math.round(offsetY + kp.y * scale);
+    <script>
+        let video, canvas, ctx;
+        let isRunning = false;
+        let animationId;
+        let counter = 0;
+        let lastTime = 0;
+        let fps = 0;
         
-        ctx.beginPath();
-        ctx.arc(x, y, 4, 0, 2 * Math.PI);
-        ctx.fill();
-        ctx.stroke();
+        // DOM 요소 가져오기
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const status = document.getElementById('status');
+        const placeholder = document.getElementById('placeholder');
+        const counterElement = document.getElementById('counter');
+        const confidenceElement = document.getElementById('confidence');
+        const keypointsElement = document.getElementById('keypoints');
+        const exerciseStateElement = document.getElementById('exercise-state');
+        const fpsElement = document.getElementById('fps');
         
-        // 키포인트 번호 표시
-        ctx.fillStyle = 'white';
-        ctx.font = '10px system-ui';
-        ctx.fillText(index.toString(), x + 6, y - 6);
-        ctx.fillStyle = '#ff4444';
-      }
-    });
-  }
-
-  function drawSkeleton(keypoints){
-    if(keypoints.length < 17) return;
-    
-    const connections = [
-      [0, 1], [0, 2], [1, 3], [2, 4], // 머리
-      [5, 6], [5, 7], [6, 8], [7, 9], [8, 10], // 팔
-      [5, 11], [6, 12], [11, 12], // 몸통
-      [11, 13], [12, 14], [13, 15], [14, 16] // 다리
-    ];
-    
-    ctx.strokeStyle = '#ff4444';
-    ctx.lineWidth = 2;
-    
-    connections.forEach(([start, end]) => {
-      const startKp = keypoints[start];
-      const endKp = keypoints[end];
-      
-      if(startKp.confidence > 0.3 && endKp.confidence > 0.3){
-        const startX = Math.round(offsetX + startKp.x * scale);
-        const startY = Math.round(offsetY + startKp.y * scale);
-        const endX = Math.round(offsetX + endKp.x * scale);
-        const endY = Math.round(offsetY + endKp.y * scale);
+        // 초기화
+        function init() {
+            video = document.getElementById('video');
+            canvas = document.getElementById('canvas');
+            ctx = canvas.getContext('2d');
+            
+            // 이벤트 리스너 등록
+            startBtn.addEventListener('click', startCamera);
+            stopBtn.addEventListener('click', stopCamera);
+            resetBtn.addEventListener('click', resetCounter);
+        }
         
-        ctx.beginPath();
-        ctx.moveTo(startX, startY);
-        ctx.lineTo(endX, endY);
-        ctx.stroke();
-      }
-    });
-  }
-
-  function updateUI(poseData){
-    // 카운터 업데이트
-    counterNumber.textContent = poseData.counter.count || 0;
-    
-    // 상태 업데이트
-    currentStateSpan.textContent = getStateText(poseData.counter.state);
-    currentPoseSpan.textContent = poseData.classification ? poseData.classification.class : '-';
-    confidenceSpan.textContent = poseData.classification ? 
-      (poseData.classification.confidence * 100).toFixed(1) + '%' : '-';
-    
-    // 피드백 업데이트
-    updateFeedback(poseData.counter);
-    
-    // 키포인트 테이블 업데이트
-    updateKeypointTable(poseData.keypoints);
-  }
-
-  function getStateText(state){
-    const stateMap = {
-      'IDLE': '대기 중',
-      'DOWN_PHASE': '하강 단계',
-      'UP_PHASE': '상승 단계',
-      'HOLD_PHASE': '유지 단계'
-    };
-    return stateMap[state] || state;
-  }
-
-  function updateFeedback(counter){
-    feedbackDisplay.textContent = counter.feedback || '운동을 시작해주세요';
-    feedbackDisplay.className = 'feedback-display';
-    
-    if(!counter.isGoodForm){
-      feedbackDisplay.classList.add('error');
-    } else if(counter.count > 0){
-      feedbackDisplay.classList.add('success');
-    }
-  }
-
-  function updateKeypointTable(keypoints){
-    if(!keypoints || keypoints.length === 0){
-      keypointTable.innerHTML = '<tr><td colspan="4">키포인트 없음</td></tr>';
-      return;
-    }
-    
-    const keypointNames = [
-      '코', '왼쪽눈', '오른쪽눈', '왼쪽귀', '오른쪽귀',
-      '왼쪽어깨', '오른쪽어깨', '왼쪽팔꿈치', '오른쪽팔꿈치',
-      '왼쪽손목', '오른쪽손목', '왼쪽엉덩이', '오른쪽엉덩이',
-      '왼쪽무릎', '오른쪽무릎', '왼쪽발목', '오른쪽발목'
-    ];
-    
-    keypointTable.innerHTML = '';
-    keypoints.forEach((kp, index) => {
-      const row = document.createElement('tr');
-      row.innerHTML = `
-        <td>${keypointNames[index] || index}</td>
-        <td>${kp.x.toFixed(1)}</td>
-        <td>${kp.y.toFixed(1)}</td>
-        <td>${(kp.confidence * 100).toFixed(1)}%</td>
-      `;
-      keypointTable.appendChild(row);
-    });
-  }
-
-  function selectExercise(exercise){
-    currentExercise = exercise;
-    currentExerciseSpan.textContent = getExerciseText(exercise);
-    
-    // 버튼 상태 업데이트
-    document.querySelectorAll('.exercise-btn').forEach(btn => btn.classList.remove('active'));
-    event.target.classList.add('active');
-    
-    // Android에 운동 타입 전달
-    if(hasBridge() && Android.setExerciseType){
-      Android.setExerciseType(exercise);
-    }
-  }
-
-  function getExerciseText(exercise){
-    const exerciseMap = {
-      'squat': '스쿼트',
-      'pushup': '푸시업',
-      'plank': '플랭크'
-    };
-    return exerciseMap[exercise] || exercise;
-  }
-
-  function resetCounter(){
-    if(hasBridge() && Android.resetCounter){
-      Android.resetCounter();
-    }
-    counterNumber.textContent = '0';
-    currentStateSpan.textContent = '대기 중';
-    currentPoseSpan.textContent = '-';
-    confidenceSpan.textContent = '-';
-    feedbackDisplay.textContent = '운동을 시작해주세요';
-    feedbackDisplay.className = 'feedback-display';
-  }
-
-  // 안드로이드 네이티브 → 웹
-  window.onPoseDetection = function(imageUrl, poseData, w, h){
-    setImage(imageUrl, w||1280, h||720);
-    imgEl.onload = ()=>{ resize(); drawPose(poseData||{}); };
-  };
-
-  // 샘플 실행: 데이터 URL로 테스트 이미지 생성
-  function simulateFromSample(){
-    // 간단한 테스트 이미지를 데이터 URL로 생성 (1280x720)
-    const canvas = document.createElement('canvas');
-    canvas.width = 1280;
-    canvas.height = 720;
-    const ctx = canvas.getContext('2d');
-    
-    // 배경 그라데이션
-    const gradient = ctx.createLinearGradient(0, 0, 1280, 720);
-    gradient.addColorStop(0, '#87CEEB');
-    gradient.addColorStop(1, '#98FB98');
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, 1280, 720);
-    
-    // 간단한 사람 모양 그리기 (스쿼트 자세)
-    ctx.fillStyle = '#FFB6C1';
-    // 머리
-    ctx.beginPath();
-    ctx.arc(640, 150, 40, 0, 2 * Math.PI);
-    ctx.fill();
-    
-    // 몸통
-    ctx.fillRect(600, 190, 80, 200);
-    
-    // 팔
-    ctx.fillRect(550, 200, 30, 150);
-    ctx.fillRect(700, 200, 30, 150);
-    
-    // 다리 (스쿼트 자세)
-    ctx.fillRect(610, 390, 25, 200);
-    ctx.fillRect(645, 390, 25, 200);
-    
-    const dataUrl = canvas.toDataURL('image/png');
-    
-    // 샘플 키포인트 데이터 (스쿼트 자세)
-    const sampleKeypoints = [
-      {x: 640, y: 110, confidence: 0.95}, // 코
-      {x: 625, y: 120, confidence: 0.90}, // 왼쪽눈
-      {x: 655, y: 120, confidence: 0.90}, // 오른쪽눈
-      {x: 610, y: 130, confidence: 0.85}, // 왼쪽귀
-      {x: 670, y: 130, confidence: 0.85}, // 오른쪽귀
-      {x: 580, y: 200, confidence: 0.90}, // 왼쪽어깨
-      {x: 700, y: 200, confidence: 0.90}, // 오른쪽어깨
-      {x: 550, y: 300, confidence: 0.85}, // 왼쪽팔꿈치
-      {x: 730, y: 300, confidence: 0.85}, // 오른쪽팔꿈치
-      {x: 520, y: 400, confidence: 0.80}, // 왼쪽손목
-      {x: 760, y: 400, confidence: 0.80}, // 오른쪽손목
-      {x: 600, y: 350, confidence: 0.95}, // 왼쪽엉덩이
-      {x: 680, y: 350, confidence: 0.95}, // 오른쪽엉덩이
-      {x: 610, y: 500, confidence: 0.90}, // 왼쪽무릎
-      {x: 670, y: 500, confidence: 0.90}, // 오른쪽무릎
-      {x: 610, y: 650, confidence: 0.85}, // 왼쪽발목
-      {x: 670, y: 650, confidence: 0.85}  // 오른쪽발목
-    ];
-    
-    const samplePoseData = {
-      keypoints: sampleKeypoints,
-      classification: {
-        class: 'squat_down',
-        confidence: 0.87
-      },
-      counter: {
-        count: 0,
-        state: 'DOWN_PHASE',
-        isGoodForm: true,
-        feedback: '스쿼트 하강 중...'
-      }
-    };
-    
-    onPoseDetection(dataUrl, samplePoseData, 1280, 720);
-  }
-
-  // 웹→안드로이드
-  function pickImage(){
-    if(hasBridge() && Android.pickImage) Android.pickImage();
-    else alert('브리지(Android.pickImage) 없음. 샘플 실행으로 확인하세요.');
-  }
-  
-  function savePng(){
-    const stage = document.querySelector('.stage');
-    const W = stage.clientWidth, H = stage.clientHeight;
-    const snap = document.createElement('canvas'); 
-    snap.width = W; 
-    snap.height = H;
-    const sctx = snap.getContext('2d');
-    try { 
-      sctx.drawImage(imgEl, 0, 0, W, H); 
-    } catch(e){}
-    sctx.drawImage(overlay, 0, 0);
-    const data = snap.toDataURL('image/png');
-    if(hasBridge() && Android.saveSnapshot) Android.saveSnapshot(data);
-    else { 
-      const a = document.createElement('a'); 
-      a.href = data; 
-      a.download = 'pose_detection.png'; 
-      a.click(); 
-    }
-  }
-</script>
+        // 상태 메시지 업데이트
+        function updateStatus(message, type = 'info') {
+            status.className = `status ${type}`;
+            status.textContent = message;
+        }
+        
+        // 카메라 시작
+        async function startCamera() {
+            try {
+                updateStatus('카메라 접근 권한을 요청하는 중...', 'info');
+                
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        width: { ideal: 640 },
+                        height: { ideal: 480 },
+                        facingMode: 'user'
+                    },
+                    audio: false
+                });
+                
+                video.srcObject = stream;
+                video.addEventListener('loadedmetadata', () => {
+                    // 캔버스 크기 설정
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    
+                    // 요소 표시/숨김
+                    video.style.display = 'block';
+                    placeholder.style.display = 'none';
+                    
+                    // 버튼 상태 변경
+                    startBtn.disabled = true;
+                    stopBtn.disabled = false;
+                    
+                    isRunning = true;
+                    updateStatus('카메라가 정상적으로 시작되었습니다!', 'success');
+                    
+                    // 분석 시작
+                    analyze();
+                });
+                
+                video.play();
+                
+            } catch (error) {
+                console.error('카메라 접근 오류:', error);
+                updateStatus(`카메라 접근 실패: ${error.message}`, 'error');
+                
+                // 구체적인 오류 메시지 제공
+                if (error.name === 'NotAllowedError') {
+                    updateStatus('카메라 권한이 거부되었습니다. 브라우저 설정에서 카메라 권한을 허용해주세요.', 'error');
+                } else if (error.name === 'NotFoundError') {
+                    updateStatus('카메라 장치를 찾을 수 없습니다.', 'error');
+                } else if (error.name === 'NotSupportedError') {
+                    updateStatus('이 브라우저에서는 카메라를 지원하지 않습니다.', 'error');
+                }
+            }
+        }
+        
+        // 카메라 정지
+        function stopCamera() {
+            if (video.srcObject) {
+                const tracks = video.srcObject.getTracks();
+                tracks.forEach(track => track.stop());
+                video.srcObject = null;
+            }
+            
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+            }
+            
+            isRunning = false;
+            video.style.display = 'none';
+            placeholder.style.display = 'block';
+            
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+            
+            updateStatus('카메라가 정지되었습니다', 'info');
+            
+            // 정보 초기화
+            confidenceElement.textContent = '0%';
+            keypointsElement.textContent = '0';
+            exerciseStateElement.textContent = '대기중';
+            fpsElement.textContent = '0';
+        }
+        
+        // 카운터 리셋
+        function resetCounter() {
+            counter = 0;
+            counterElement.textContent = counter;
+            updateStatus('카운터가 초기화되었습니다', 'info');
+        }
+        
+        // 포즈 분석 (시뮬레이션)
+        function analyze() {
+            if (!isRunning) return;
+            
+            const currentTime = performance.now();
+            const deltaTime = currentTime - lastTime;
+            
+            if (deltaTime >= 100) { // 100ms마다 업데이트
+                // FPS 계산
+                fps = Math.round(1000 / deltaTime);
+                fpsElement.textContent = fps;
+                
+                // 시뮬레이션 데이터 (실제로는 ML Kit 또는 TensorFlow Lite 결과)
+                const confidence = Math.random() * 100;
+                const keypoints = Math.floor(Math.random() * 17) + 1;
+                
+                confidenceElement.textContent = confidence.toFixed(1) + '%';
+                keypointsElement.textContent = keypoints;
+                
+                // 운동 감지 시뮬레이션
+                if (confidence > 80 && keypoints > 10) {
+                    exerciseStateElement.textContent = '운동 감지됨';
+                    
+                    // 랜덤하게 카운터 증가 (실제로는 포즈 분석 결과에 따라)
+                    if (Math.random() > 0.98) {
+                        counter++;
+                        counterElement.textContent = counter;
+                        updateStatus(`훌륭합니다! ${counter}회 완료`, 'success');
+                    }
+                } else {
+                    exerciseStateElement.textContent = '자세 조정 필요';
+                }
+                
+                lastTime = currentTime;
+            }
+            
+            // 비디오 프레임을 캔버스에 그리기
+            if (video.videoWidth > 0 && video.videoHeight > 0) {
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                
+                // 포즈 키포인트 시뮬레이션 (실제로는 ML Kit 결과)
+                drawPoseKeypoints();
+            }
+            
+            animationId = requestAnimationFrame(analyze);
+        }
+        
+        // 포즈 키포인트 그리기 (시뮬레이션)
+        function drawPoseKeypoints() {
+            ctx.fillStyle = '#ff0000';
+            ctx.strokeStyle = '#00ff00';
+            ctx.lineWidth = 2;
+            
+            // 시뮬레이션 키포인트들
+            const keypoints = [
+                { x: canvas.width * 0.5, y: canvas.height * 0.2 }, // 머리
+                { x: canvas.width * 0.45, y: canvas.height * 0.3 }, // 왼쪽 어깨
+                { x: canvas.width * 0.55, y: canvas.height * 0.3 }, // 오른쪽 어깨
+                { x: canvas.width * 0.4, y: canvas.height * 0.5 }, // 왼쪽 팔꿈치
+                { x: canvas.width * 0.6, y: canvas.height * 0.5 }, // 오른쪽 팔꿈치
+                { x: canvas.width * 0.45, y: canvas.height * 0.7 }, // 왼쪽 엉덩이
+                { x: canvas.width * 0.55, y: canvas.height * 0.7 }, // 오른쪽 엉덩이
+            ];
+            
+            // 키포인트 그리기
+            keypoints.forEach(point => {
+                ctx.beginPath();
+                ctx.arc(point.x, point.y, 5, 0, 2 * Math.PI);
+                ctx.fill();
+            });
+            
+            // 스켈레톤 연결선 그리기
+            const connections = [
+                [0, 1], [1, 2], [1, 3], [2, 4], [1, 5], [2, 6], [5, 6]
+            ];
+            
+            connections.forEach(([from, to]) => {
+                if (keypoints[from] && keypoints[to]) {
+                    ctx.beginPath();
+                    ctx.moveTo(keypoints[from].x, keypoints[from].y);
+                    ctx.lineTo(keypoints[to].x, keypoints[to].y);
+                    ctx.stroke();
+                }
+            });
+        }
+        
+        // 페이지 로드 시 초기화
+        document.addEventListener('DOMContentLoaded', init);
+        
+        // 페이지 언로드 시 카메라 정지
+        window.addEventListener('beforeunload', stopCamera);
+        
+        // 브라우저 지원 확인
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            updateStatus('이 브라우저는 카메라 접근을 지원하지 않습니다.', 'error');
+            startBtn.disabled = true;
+        }
+    </script>
 </body>
 </html>
