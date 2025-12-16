@@ -112,7 +112,7 @@
 
 ### 📺 **앱 사용 데모 영상**
 
-[![RE:FIT 시연 영상](https://img.youtube.com/vi/VIDEO_ID/0.jpg)](https://youtube.com/watch?v=VIDEO_ID)
+[![RE:FIT 시연 영상][(https://img.youtube.com/vi/VIDEO_ID/0.jpg)](https://youtube.com/watch?v=VIDEO_ID](https://youtube.com/shorts/W0pfbJFK7Mo)
 
 **시연 단계 요약:**
 1. **앱 실행 및 가이드 확인** - 초기 설정 및 사용법 안내
@@ -191,5 +191,6 @@
 ### ⭐ **이 프로젝트가 도움이 되셨다면 Star를 눌러주세요!** ⭐
 
 **Made with ❤️ by 민종**
+
 
 </div>
