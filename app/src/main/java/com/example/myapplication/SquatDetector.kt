@@ -12,6 +12,16 @@ import kotlin.math.sqrt
 import kotlin.text.toDouble
 
 /**
+ * 스쿼트 상태 정의
+ */
+enum class SquatState {
+    STANDING,    // 서있는 상태 (시작 자세)
+    DESCENDING,  // 하강 중
+    BOTTOM,      // 최하단 (스쿼트 자세)
+    ASCENDING    // 상승 중
+}
+
+/**
  * ML Kit 키포인트 기반 스쿼트 동작 감지
  * 힙-무릎-발목 각도를 계산하여 스쿼트 동작을 정확하게 감지합니다.
  */
@@ -19,14 +29,6 @@ class SquatDetector {
 
     companion object {
         private const val TAG = "SquatDetector"
-
-        // 스쿼트 상태 정의
-        enum class SquatState {
-            STANDING,    // 서있는 상태 (시작 자세)
-            DESCENDING,  // 하강 중
-            BOTTOM,      // 최하단 (스쿼트 자세)
-            ASCENDING    // 상승 중
-        }
 
         // 각도 임계값
         private const val STANDING_KNEE_ANGLE = 160f  // 서있는 자세 무릎 각도

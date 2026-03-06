@@ -11,6 +11,16 @@ import kotlin.math.pow
 import kotlin.math.sqrt
 
 /**
+ * 푸시업 상태 정의
+ */
+enum class PushUpState {
+    UP,          // 팔이 펴진 상태 (시작 자세)
+    DESCENDING,  // 하강 중
+    DOWN,        // 팔이 굽혀진 상태 (가슴이 바닥에 가까움)
+    ASCENDING    // 상승 중
+}
+
+/**
  * ML Kit 키포인트 기반 푸시업 동작 감지
  * 어깨-팔꿈치-손목 각도를 계산하여 푸시업 동작을 정확하게 감지합니다.
  */
@@ -18,14 +28,6 @@ class PushUpDetector {
 
     companion object {
         private const val TAG = "PushUpDetector"
-
-        // 푸시업 상태 정의
-        enum class PushUpState {
-            UP,          // 팔이 펴진 상태 (시작 자세)
-            DESCENDING,  // 하강 중
-            DOWN,        // 팔이 굽혀진 상태 (가슴이 바닥에 가까움)
-            ASCENDING    // 상승 중
-        }
 
         // 각도 임계값
         private const val UP_ELBOW_ANGLE = 160f      // 팔 펴진 상태

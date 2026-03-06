@@ -9,6 +9,16 @@ import kotlin.math.abs
 import kotlin.math.atan2
 
 /**
+ * 플랭크 상태 정의
+ */
+enum class PlankState {
+    NOT_IN_POSITION,  // 플랭크 자세가 아님
+    IN_POSITION,      // 플랭크 자세 유지 중
+    HIPS_TOO_HIGH,    // 엉덩이가 너무 높음
+    HIPS_TOO_LOW      // 엉덩이가 너무 낮음
+}
+
+/**
  * ML Kit 키포인트 기반 플랭크 자세 감지
  * 어깨-엉덩이-발목의 정렬도를 계산하여 플랭크 자세를 정확하게 감지하고 시간을 측정합니다.
  */
@@ -16,14 +26,6 @@ class PlankDetector {
 
     companion object {
         private const val TAG = "PlankDetector"
-
-        // 플랭크 상태 정의
-        enum class PlankState {
-            NOT_IN_POSITION,  // 플랭크 자세가 아님
-            IN_POSITION,      // 플랭크 자세 유지 중
-            HIPS_TOO_HIGH,    // 엉덩이가 너무 높음
-            HIPS_TOO_LOW      // 엉덩이가 너무 낮음
-        }
 
         // 각도 임계값
         private const val PERFECT_PLANK_ANGLE = 180f  // 완벽한 일직선

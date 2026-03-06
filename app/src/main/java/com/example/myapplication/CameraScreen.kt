@@ -210,10 +210,10 @@ private fun CameraPreviewWithPoseDetection(
                                     counterResult = ExerciseCounter.CounterResult(
                                         count = detectedPushUpResult.count,
                                         state = when (detectedPushUpResult.state) {
-                                            PushUpDetector.Companion.PushUpState.UP -> ExerciseCounter.Companion.State.IDLE
-                                            PushUpDetector.Companion.PushUpState.DESCENDING -> ExerciseCounter.Companion.State.DOWN_PHASE
-                                            PushUpDetector.Companion.PushUpState.DOWN -> ExerciseCounter.Companion.State.DOWN_PHASE
-                                            PushUpDetector.Companion.PushUpState.ASCENDING -> ExerciseCounter.Companion.State.UP_PHASE
+                                            PushUpState.UP -> ExerciseCounter.Companion.State.IDLE
+                                            PushUpState.DESCENDING -> ExerciseCounter.Companion.State.DOWN_PHASE
+                                            PushUpState.DOWN -> ExerciseCounter.Companion.State.DOWN_PHASE
+                                            PushUpState.ASCENDING -> ExerciseCounter.Companion.State.UP_PHASE
                                         },
                                         isGoodForm = detectedPushUpResult.isGoodForm,
                                         feedback = detectedPushUpResult.feedback
@@ -227,8 +227,10 @@ private fun CameraPreviewWithPoseDetection(
                                     counterResult = ExerciseCounter.CounterResult(
                                         count = 0,  // 플랭크는 카운트가 아닌 시간 측정
                                         state = when (detectedPlankResult.state) {
-                                            PlankDetector.Companion.PlankState.IN_POSITION -> ExerciseCounter.Companion.State.DOWN_PHASE
-                                            else -> ExerciseCounter.Companion.State.IDLE
+                                            PlankState.IN_POSITION -> ExerciseCounter.Companion.State.DOWN_PHASE
+                                            PlankState.NOT_IN_POSITION,
+                                            PlankState.HIPS_TOO_HIGH,
+                                            PlankState.HIPS_TOO_LOW -> ExerciseCounter.Companion.State.IDLE
                                         },
                                         isGoodForm = detectedPlankResult.isGoodForm,
                                         feedback = detectedPlankResult.feedback
@@ -720,78 +722,6 @@ private fun PermissionDeniedScreen(
 }
 
 /**
- * 운동 타입 선택 UI
- */
-@Composable
-private fun ExerciseTypeSelector(
-    currentType: ExerciseType,
-    onTypeSelected: (ExerciseType) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.SpaceEvenly
-    ) {
-        ExerciseTypeButton(
-            type = ExerciseType.SQUAT,
-            label = "스쿼트",
-            emoji = "🏋️",
-            isSelected = currentType == ExerciseType.SQUAT,
-            onClick = { onTypeSelected(ExerciseType.SQUAT) }
-        )
-        ExerciseTypeButton(
-            type = ExerciseType.PUSHUP,
-            label = "푸시업",
-            emoji = "💪",
-            isSelected = currentType == ExerciseType.PUSHUP,
-            onClick = { onTypeSelected(ExerciseType.PUSHUP) }
-        )
-        ExerciseTypeButton(
-            type = ExerciseType.PLANK,
-            label = "플랭크",
-            emoji = "🧘",
-            isSelected = currentType == ExerciseType.PLANK,
-            onClick = { onTypeSelected(ExerciseType.PLANK) }
-        )
-    }
-}
-
-/**
- * 운동 타입 선택 버튼
- */
-@Composable
-private fun ExerciseTypeButton(
-    type: ExerciseType,
-    label: String,
-    emoji: String,
-    isSelected: Boolean,
-    onClick: () -> Unit
-) {
-    Button(
-        onClick = onClick,
-        colors = ButtonDefaults.buttonColors(
-            containerColor = if (isSelected) Color(0xFF4CAF50) else Color.Gray.copy(alpha = 0.7f)
-        ),
-        shape = RoundedCornerShape(16.dp),
-        modifier = Modifier.padding(4.dp)
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.padding(8.dp)
-        ) {
-            Text(text = emoji, fontSize = 24.sp)
-            Text(
-                text = label,
-                fontSize = 14.sp,
-                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-            )
-        }
-    }
-}
-
-/**
  * 푸시업 정보 오버레이
  */
 @Composable
@@ -847,19 +777,19 @@ private fun PushUpInfoOverlay(
             Card(
                 colors = CardDefaults.cardColors(
                     containerColor = when (pushUpResult.state) {
-                        PushUpDetector.Companion.PushUpState.DOWN -> Color(0xFF2196F3)
-                        PushUpDetector.Companion.PushUpState.UP -> Color(0xFF4CAF50)
-                        else -> Color(0xFF9E9E9E)
+                        PushUpState.DOWN -> Color(0xFF2196F3)
+                        PushUpState.UP -> Color(0xFF4CAF50)
+                        PushUpState.DESCENDING, PushUpState.ASCENDING -> Color(0xFF9E9E9E)
                     }.copy(alpha = 0.8f)
                 ),
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Text(
                     text = when (pushUpResult.state) {
-                        PushUpDetector.Companion.PushUpState.UP -> "준비 ✅"
-                        PushUpDetector.Companion.PushUpState.DESCENDING -> "하강 중 ⬇️"
-                        PushUpDetector.Companion.PushUpState.DOWN -> "최하단 💪"
-                        PushUpDetector.Companion.PushUpState.ASCENDING -> "상승 중 ⬆️"
+                        PushUpState.UP -> "준비 ✅"
+                        PushUpState.DESCENDING -> "하강 중 ⬇️"
+                        PushUpState.DOWN -> "최하단 💪"
+                        PushUpState.ASCENDING -> "상승 중 ⬆️"
                     },
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                     color = Color.White,
@@ -952,20 +882,19 @@ private fun PlankInfoOverlay(
             Card(
                 colors = CardDefaults.cardColors(
                     containerColor = when (plankResult.state) {
-                        PlankDetector.Companion.PlankState.IN_POSITION -> Color(0xFF4CAF50)
-                        PlankDetector.Companion.PlankState.HIPS_TOO_HIGH -> Color(0xFFFF9800)
-                        PlankDetector.Companion.PlankState.HIPS_TOO_LOW -> Color(0xFFFF9800)
-                        else -> Color(0xFF9E9E9E)
+                        PlankState.IN_POSITION -> Color(0xFF4CAF50)
+                        PlankState.HIPS_TOO_HIGH, PlankState.HIPS_TOO_LOW -> Color(0xFFFF9800)
+                        PlankState.NOT_IN_POSITION -> Color(0xFF9E9E9E)
                     }.copy(alpha = 0.8f)
                 ),
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Text(
                     text = when (plankResult.state) {
-                        PlankDetector.Companion.PlankState.IN_POSITION -> "완벽한 자세! 💯"
-                        PlankDetector.Companion.PlankState.HIPS_TOO_HIGH -> "엉덩이 ↓"
-                        PlankDetector.Companion.PlankState.HIPS_TOO_LOW -> "엉덩이 ↑"
-                        PlankDetector.Companion.PlankState.NOT_IN_POSITION -> "자세 준비"
+                        PlankState.IN_POSITION -> "완벽한 자세! 💯"
+                        PlankState.HIPS_TOO_HIGH -> "엉덩이 ↓"
+                        PlankState.HIPS_TOO_LOW -> "엉덩이 ↑"
+                        PlankState.NOT_IN_POSITION -> "자세 준비"
                     },
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                     color = Color.White,
