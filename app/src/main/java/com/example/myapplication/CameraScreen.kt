@@ -19,7 +19,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
@@ -108,7 +111,7 @@ private fun CameraPreviewWithPoseDetection(
     // 새로운 키포인트 기반 스쿼트 감지기
     val squatDetector = remember { SquatDetector() }
     var squatResult by remember {
-        mutableStateOf<SquatDetector.Companion.SquatResult?>(null)
+        mutableStateOf<SquatDetector.SquatResult?>(null)
     }
 
     // 카메라 상태
@@ -170,14 +173,15 @@ private fun CameraPreviewWithPoseDetection(
                             val currentExerciseType = exerciseCounter.getExerciseType()
                             if (currentExerciseType == ExerciseCounter.Companion.ExerciseType.SQUAT) {
                                 // 스쿼트일 때는 키포인트 기반 감지 사용
-                                squatResult = squatDetector.detectSquat(pose)
+                                val detectedSquatResult = squatDetector.detectSquat(pose)
+                                squatResult = detectedSquatResult
 
                                 // ExerciseCounter 결과를 SquatDetector 결과로 동기화
                                 counterResult = ExerciseCounter.CounterResult(
-                                    count = squatResult!!.count,
-                                    state = mapSquatStateToCounterState(squatResult!!.state),
-                                    isGoodForm = squatResult!!.isGoodForm,
-                                    feedback = squatResult!!.feedback
+                                    count = detectedSquatResult.count,
+                                    state = mapSquatStateToCounterState(detectedSquatResult.state),
+                                    isGoodForm = detectedSquatResult.isGoodForm,
+                                    feedback = detectedSquatResult.feedback
                                 )
                             } else {
                                 // 푸시업, 플랭크는 기존 TFLite 모델 사용
@@ -432,7 +436,7 @@ private fun createPoseDetector(): PoseDetector {
 @Composable
 private fun ExerciseInfoOverlay(
     counterResult: ExerciseCounter.CounterResult,
-    squatResult: SquatDetector.Companion.SquatResult?,
+    squatResult: SquatDetector.SquatResult?,
     formattedTime: String,
     exerciseType: ExerciseCounter.Companion.ExerciseType,
     modifier: Modifier = Modifier
@@ -441,7 +445,7 @@ private fun ExerciseInfoOverlay(
         modifier = modifier
             .fillMaxWidth()
             .padding(16.dp)
-            .background(Color.Black.copy(alpha = 0.7f), shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp))
+            .background(Color.Black.copy(alpha = 0.7f), shape = RoundedCornerShape(20.dp))
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -459,13 +463,13 @@ private fun ExerciseInfoOverlay(
             Text(
                 text = formattedTime,
                 style = MaterialTheme.typography.headlineMedium.copy(
-                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                    fontWeight = FontWeight.Bold
                 ),
                 color = Color(0xFF4CAF50)
             )
         }
 
-        Divider(color = Color.White.copy(alpha = 0.3f), thickness = 2.dp)
+        HorizontalDivider(color = Color.White.copy(alpha = 0.3f), thickness = 2.dp)
 
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -474,7 +478,7 @@ private fun ExerciseInfoOverlay(
             text = "${counterResult.count}",
             style = MaterialTheme.typography.displayLarge.copy(
                 fontSize = 72.sp,
-                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                fontWeight = FontWeight.Bold
             ),
             color = Color.White
         )
@@ -510,7 +514,7 @@ private fun ExerciseInfoOverlay(
                     else -> counterResult.state.toString()
                 },
                 style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                    fontWeight = FontWeight.Bold
                 ),
                 color = Color.White,
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp)
@@ -523,10 +527,10 @@ private fun ExerciseInfoOverlay(
         Text(
             text = counterResult.feedback,
             style = MaterialTheme.typography.bodyLarge.copy(
-                fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
+                fontWeight = FontWeight.Medium
             ),
             color = if (counterResult.isGoodForm) Color(0xFF4CAF50) else Color(0xFFFF5722),
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            textAlign = TextAlign.Center,
             modifier = Modifier.padding(horizontal = 8.dp)
         )
 
@@ -547,7 +551,7 @@ private fun ExerciseInfoOverlay(
                     Text(
                         text = "${squatResult.leftKneeAngle.toInt()}°",
                         style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                            fontWeight = FontWeight.Bold
                         ),
                         color = Color.White
                     )
@@ -562,7 +566,7 @@ private fun ExerciseInfoOverlay(
                     Text(
                         text = "${squatResult.rightKneeAngle.toInt()}°",
                         style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                            fontWeight = FontWeight.Bold
                         ),
                         color = Color.White
                     )
@@ -586,11 +590,11 @@ private fun ExitButton(
             .size(48.dp)
             .background(
                 color = Color(0xFFFF5722),
-                shape = androidx.compose.foundation.shape.CircleShape
+                shape = CircleShape
             )
     ) {
         Icon(
-            imageVector = androidx.compose.material.icons.Icons.Default.Close,
+            imageVector = Icons.Default.Close,
             contentDescription = "나가기",
             tint = Color.White,
             modifier = Modifier.size(32.dp)

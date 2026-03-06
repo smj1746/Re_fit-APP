@@ -1,15 +1,20 @@
-# KSP (Kotlin Symbol Processing) 설정 가이드
+# KAPT (Kotlin Annotation Processing Tool) 설정 가이드
 
-## ✅ 현재 설정 상태
+## ✅ 현재 설정 상태 (KAPT 사용 중)
+
+> **참고**: 이 프로젝트는 안정성을 위해 KSP 대신 **kapt**를 사용합니다.
 
 ### 1. **libs.versions.toml** (Gradle Version Catalog)
 ```toml
 [versions]
 kotlin = "2.0.21"
-ksp = "2.0.21-1.0.29"
+# KSP 제거 - kapt 사용으로 전환
 
 [plugins]
-ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+android-application = { id = "com.android.application", version.ref = "agp" }
+kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+# ksp 제거 - kapt 사용
 ```
 
 ### 2. **build.gradle.kts** (프로젝트 레벨)
@@ -18,7 +23,7 @@ plugins {
     alias(libs.plugins.android.application) apply false
     alias(libs.plugins.kotlin.android) apply false
     alias(libs.plugins.kotlin.compose) apply false
-    alias(libs.plugins.ksp) apply false  // ← 이 줄이 중요!
+    // ksp 제거 - kapt 사용
 }
 ```
 
@@ -28,77 +33,76 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
-    alias(libs.plugins.ksp)  // ← KSP 플러그인 적용
+    id("kotlin-kapt")  // ← kapt 플러그인 적용
 }
 
 dependencies {
     // Room Database
     implementation("androidx.room:room-runtime:2.6.1")
     implementation("androidx.room:room-ktx:2.6.1")
-    ksp("androidx.room:room-compiler:2.6.1")  // ← ksp() 함수 사용 가능
+    kapt("androidx.room:room-compiler:2.6.1")  // ← kapt() 함수 사용
 }
 ```
 
 ## 🔧 문제 해결
 
-### 문제 1: "Unresolved reference: ksp"
-**원인**: 프로젝트 레벨 build.gradle.kts에 KSP 플러그인이 선언되지 않음
+### 문제 1: "Unresolved reference: kapt"
+**원인**: 앱 레벨 build.gradle.kts에 kapt 플러그인이 적용되지 않음
 
 **해결 방법**:
 ```kotlin
-// build.gradle.kts (프로젝트 레벨)
+// app/build.gradle.kts
 plugins {
-    alias(libs.plugins.ksp) apply false  // 이 줄 추가!
+    id("kotlin-kapt")  // 이 줄 추가!
 }
 ```
 
-### 문제 2: "Plugin [id: 'com.google.devtools.ksp'] was not found"
-**원인**: libs.versions.toml에 KSP 플러그인 정의 누락
+### 문제 2: kapt 빌드 느림
+**원인**: kapt는 KSP보다 빌드 속도가 느립니다
 
-**해결 방법**:
+**해결 방법**: gradle.properties에 최적화 옵션 추가
+```properties
+# gradle.properties
+kapt.incremental=true
+kapt.use.worker.api=true
+```
+
+### 문제 3: Kotlin 버전 호환성
+**원인**: Kotlin 2.x 버전에서 kapt 호환성 문제
+
+**해결 방법**: 안정적인 Kotlin 1.9.x로 다운그레이드
 ```toml
 # gradle/libs.versions.toml
 [versions]
-ksp = "2.0.21-1.0.29"
-
-[plugins]
-ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+kotlin = "1.9.10"  # 2.0.21 대신
 ```
 
-### 문제 3: 버전 호환성 오류
-**원인**: Kotlin 버전과 KSP 버전이 맞지 않음
-
-**해결 방법**: 버전 매핑 표 참고
-
-| Kotlin 버전 | KSP 버전 |
-|------------|----------|
-| 2.0.21 | 2.0.21-1.0.29 |
-| 2.0.20 | 2.0.20-1.0.25 |
-| 2.0.10 | 2.0.10-1.0.24 |
-| 1.9.24 | 1.9.24-1.0.20 |
-| 1.9.23 | 1.9.23-1.0.20 |
-| 1.9.22 | 1.9.22-1.0.17 |
+### KSP로 전환을 고려한다면?
+kapt보다 2배 빠른 KSP 사용을 원하시면:
+- Kotlin 버전을 1.9.10으로 다운그레이드
+- KSP 1.9.10-1.0.13 버전 사용
+- 자세한 내용은 `KSP_TO_KAPT_MIGRATION.md` 참고
 
 ## 📋 체크리스트
 
-KSP 설정이 올바른지 확인하세요:
+kapt 설정이 올바른지 확인하세요:
 
-- [ ] `gradle/libs.versions.toml`에 KSP 버전 정의됨
-- [ ] `gradle/libs.versions.toml`에 KSP 플러그인 정의됨
-- [ ] `build.gradle.kts` (프로젝트)에 `apply false` 선언됨
-- [ ] `app/build.gradle.kts`에 KSP 플러그인 적용됨
-- [ ] Kotlin과 KSP 버전이 호환됨
-- [ ] `ksp()` 함수로 의존성 추가됨
+- [x] `gradle/libs.versions.toml`에서 KSP 관련 설정 제거됨
+- [x] `build.gradle.kts` (프로젝트)에서 KSP 플러그인 제거됨
+- [x] `app/build.gradle.kts`에 `id("kotlin-kapt")` 적용됨
+- [x] Room 컴파일러를 `kapt()` 함수로 추가됨
+- [x] Kotlin 버전 2.0.21 사용 중 (또는 안정성 위해 1.9.10)
 
 ## 🚀 Gradle Sync 및 빌드
 
-### 1. Gradle Sync
-```bash
-# 의존성 새로고침
-.\gradlew.bat --refresh-dependencies
+### 1. Android Studio에서 Gradle Sync
+```
+File → Sync Project with Gradle Files
+```
 
-# 또는 Android Studio에서:
-# File → Sync Project with Gradle Files
+또는 명령줄:
+```bash
+.\gradlew.bat --refresh-dependencies
 ```
 
 ### 2. Clean & Build
@@ -110,34 +114,44 @@ KSP 설정이 올바른지 확인하세요:
 ### 3. Cache 초기화 (문제 지속 시)
 ```
 Android Studio:
-File → Invalidate Caches / Restart
+File → Invalidate Caches / Restart → Invalidate and Restart
+```
+
+### 4. kapt 빌드 최적화 (선택사항)
+`gradle.properties` 파일에 추가:
+```properties
+kapt.incremental=true
+kapt.use.worker.api=true
+kapt.include.compile.classpath=false
 ```
 
 ## 📚 참고 자료
 
-- [KSP 공식 문서](https://kotlinlang.org/docs/ksp-overview.html)
-- [Room Database with KSP](https://developer.android.com/jetpack/androidx/releases/room#ksp)
+- [Kotlin kapt 공식 문서](https://kotlinlang.org/docs/kapt.html)
+- [Room Database with kapt](https://developer.android.com/jetpack/androidx/releases/room)
 - [Gradle Version Catalog](https://docs.gradle.org/current/userguide/platforms.html)
+- [kapt vs KSP 비교](https://kotlinlang.org/docs/ksp-overview.html#comparison-to-kapt)
 
 ## ✨ 최종 확인
 
 모든 설정이 완료되었으면:
 
-1. **Gradle Sync 성공** 확인
-2. **빌드 성공** 확인
-3. **앱 실행** 테스트
+1. ✅ **Gradle Sync 성공** - Android Studio에서 확인
+2. ✅ **빌드 성공** - 아래 명령으로 확인
+3. ✅ **앱 실행** - 디바이스/에뮬레이터에서 테스트
 
 ```bash
-# 빌드
+# Android Studio에서 직접 빌드하거나
+
+# 또는 명령줄에서:
 .\gradlew.bat assembleDebug
 
-# 앱 설치
-adb install -r app/build/outputs/apk/debug/app-debug.apk
-
-# 앱 실행
-adb shell am start -n com.example.myapplication/.MainActivity
+# APK 위치:
+# app/build/outputs/apk/debug/app-debug.apk
 ```
 
 ---
 
-**Re:fit 팀** - 문제 해결 완료! 💪
+**Re:fit 팀** - kapt 설정 완료! 💪
+
+> **다음 단계**: Android Studio에서 **Sync Project with Gradle Files**를 실행하세요.

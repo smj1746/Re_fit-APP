@@ -1,9 +1,15 @@
 package com.example.myapplication
 
+import android.graphics.PointF
 import android.util.Log
 import com.google.mlkit.vision.pose.Pose
 import com.google.mlkit.vision.pose.PoseLandmark
-import kotlin.math.*
+import kotlin.math.PI
+import kotlin.math.abs
+import kotlin.math.atan2
+import kotlin.math.pow
+import kotlin.math.sqrt
+import kotlin.text.toDouble
 
 /**
  * ML Kit 키포인트 기반 스쿼트 동작 감지
@@ -139,15 +145,16 @@ class SquatDetector {
      * 두 점 사이의 각도 계산 (3개 점으로 이루어진 각도)
      */
     private fun calculateAngle(
-        firstPoint: com.google.mlkit.vision.common.PointF,
-        midPoint: com.google.mlkit.vision.common.PointF,
-        lastPoint: com.google.mlkit.vision.common.PointF
+        firstPoint: PointF,
+        midPoint: PointF,
+        lastPoint: PointF
     ): Float {
+        // .y()와 .x()를 .y와 .x 속성으로 변경했습니다.
         val radians = atan2(lastPoint.y - midPoint.y, lastPoint.x - midPoint.x) -
                 atan2(firstPoint.y - midPoint.y, firstPoint.x - midPoint.x)
         var angle = abs(radians * 180.0 / PI).toFloat()
 
-        // 0-180도 범위로 정규화
+        // Normalize to 0-180 degree range
         if (angle > 180.0) {
             angle = 360.0f - angle
         }
