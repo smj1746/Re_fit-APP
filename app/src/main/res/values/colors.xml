@@ -8,8 +8,9 @@
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
 
-    <!-- RE:FIT Brand Colors -->
-    <color name="refit_green">#4CAF50</color>
-    <color name="refit_blue">#2196F3</color>
-    <color name="splash_background">#FFFFFF</color>
+    <!-- RE:FIT Brand Colors (TEST VERSION - 변경됨!) -->
+    <color name="refit_green">#FF5722</color>  <!-- 주황색으로 변경! -->
+    <color name="refit_blue">#E91E63</color>   <!-- 핑크색으로 변경! -->
+    <color name="splash_background">#FFF3E0</color>  <!-- 연한 주황색 배경 -->
+    <color name="test_indicator">#FF0000</color>  <!-- 테스트 표시 빨간색 -->
 </resources>

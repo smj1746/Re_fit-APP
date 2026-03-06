@@ -48,12 +48,12 @@ enum class ExerciseType {
 /**
  * SquatDetector 상태를 ExerciseCounter 상태로 매핑
  */
-private fun mapSquatStateToCounterState(squatState: SquatDetector.SquatState): ExerciseCounter.Companion.State {
+private fun mapSquatStateToCounterState(squatState: SquatState): ExerciseCounter.Companion.State {
     return when (squatState) {
-        SquatDetector.SquatState.STANDING -> ExerciseCounter.Companion.State.IDLE
-        SquatDetector.SquatState.DESCENDING -> ExerciseCounter.Companion.State.DOWN_PHASE
-        SquatDetector.SquatState.BOTTOM -> ExerciseCounter.Companion.State.DOWN_PHASE
-        SquatDetector.SquatState.ASCENDING -> ExerciseCounter.Companion.State.UP_PHASE
+        SquatState.STANDING -> ExerciseCounter.Companion.State.IDLE
+        SquatState.DESCENDING -> ExerciseCounter.Companion.State.DOWN_PHASE
+        SquatState.BOTTOM -> ExerciseCounter.Companion.State.DOWN_PHASE
+        SquatState.ASCENDING -> ExerciseCounter.Companion.State.UP_PHASE
     }
 }
 
