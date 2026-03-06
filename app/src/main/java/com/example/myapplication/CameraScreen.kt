@@ -137,6 +137,7 @@ private fun CameraPreviewWithPoseDetection(
     // 타이머 초기화 및 시작
     val workoutTimer = remember { WorkoutTimer() }
     val formattedTime by workoutTimer.formattedTime.collectAsState()
+    var isPaused by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         workoutTimer.start()
@@ -249,19 +250,27 @@ private fun CameraPreviewWithPoseDetection(
             modifier = Modifier.fillMaxSize()
         )
 
-        // 운동 타입 선택 UI (하단)
-        ExerciseTypeSelector(
-            currentType = selectedExerciseType,
-            onTypeSelected = { newType ->
-                selectedExerciseType = newType
-                // 감지기 리셋
-                squatDetector.reset()
-                pushUpDetector.reset()
-                plankDetector.reset()
-                // 결과 초기화
-                squatResult = null
-                pushUpResult = null
-                plankResult = null
+        // 운동 제어 버튼 (하단)
+        WorkoutControlButtons(
+            isPaused = isPaused,
+            onPauseResume = {
+                if (isPaused) {
+                    workoutTimer.resume()
+                    isPaused = false
+                } else {
+                    workoutTimer.pause()
+                    isPaused = true
+                }
+            },
+            onComplete = {
+                // 운동 완료
+                workoutTimer.stop()
+                val finalCount = when (selectedExerciseType) {
+                    ExerciseType.SQUAT -> squatResult?.count ?: 0
+                    ExerciseType.PUSHUP -> pushUpResult?.count ?: 0
+                    ExerciseType.PLANK -> 0  // 플랭크는 카운트가 아닌 시간
+                }
+                onExitWorkout(finalCount, workoutTimer.getElapsedSeconds())
             },
             modifier = Modifier
                 .align(Alignment.BottomCenter)
@@ -1041,4 +1050,78 @@ private fun formatPlankTime(millis: Long): String {
     val seconds = (millis / 1000) % 60
     val minutes = (millis / 1000) / 60
     return String.format("%02d:%02d", minutes, seconds)
+}
+
+/**
+ * 운동 제어 버튼 (휴식/재개, 완료)
+ */
+@Composable
+private fun WorkoutControlButtons(
+    isPaused: Boolean,
+    onPauseResume: () -> Unit,
+    onComplete: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // 운동 휴식/재개 버튼 (토글)
+        Button(
+            onClick = onPauseResume,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = if (isPaused) Color(0xFF2196F3) else Color(0xFFFF9800)  // 일시정지 시 파란색, 실행 중 주황색
+            ),
+            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier
+                .weight(1f)
+                .height(56.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = if (isPaused) "▶️" else "⏸️",
+                    fontSize = 20.sp
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = if (isPaused) "운동 재개" else "운동 휴식",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+
+        // 운동 완료 버튼
+        Button(
+            onClick = onComplete,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color(0xFF4CAF50)  // 초록색
+            ),
+            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier
+                .weight(1f)
+                .height(56.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = "✅",
+                    fontSize = 20.sp
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "운동 완료",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    }
 }
