@@ -6,16 +6,23 @@ import android.util.Log
 import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.scale
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
@@ -33,8 +40,10 @@ import com.google.mlkit.vision.pose.Pose
 import com.google.mlkit.vision.pose.PoseDetection
 import com.google.mlkit.vision.pose.PoseDetector
 import com.google.mlkit.vision.pose.accurate.AccuratePoseDetectorOptions
+import kotlinx.coroutines.delay
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * 운동 타입 정의
@@ -65,7 +74,10 @@ private fun mapSquatStateToCounterState(squatState: SquatState): ExerciseCounter
 fun CameraScreen(
     poseClassifier: PoseClassifier,
     exerciseCounter: ExerciseCounter,
-    onExitWorkout: (Int, Long) -> Unit, // 나가기 시 콜백 (카운트, 경과시간)
+    onExitWorkout: (Int, Long) -> Unit,
+    onNavigateBack: () -> Unit,
+    onTestComplete: (TestResult) -> Unit = {},
+    isTestMode: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val cameraPermissionState = rememberPermissionState(Manifest.permission.CAMERA)
@@ -82,7 +94,10 @@ fun CameraScreen(
                 CameraPreviewWithPoseDetection(
                     poseClassifier = poseClassifier,
                     exerciseCounter = exerciseCounter,
-                    onExitWorkout = onExitWorkout
+                    onExitWorkout = onExitWorkout,
+                    onNavigateBack = onNavigateBack,
+                    onTestComplete = onTestComplete,
+                    isTestMode = isTestMode
                 )
             }
             else -> {
@@ -98,7 +113,10 @@ fun CameraScreen(
 private fun CameraPreviewWithPoseDetection(
     poseClassifier: PoseClassifier,
     exerciseCounter: ExerciseCounter,
-    onExitWorkout: (Int, Long) -> Unit
+    onExitWorkout: (Int, Long) -> Unit,
+    onNavigateBack: () -> Unit,
+    onTestComplete: (TestResult) -> Unit = {},
+    isTestMode: Boolean = false
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -117,8 +135,16 @@ private fun CameraPreviewWithPoseDetection(
         )
     }
 
-    // 운동 타입 선택
-    var selectedExerciseType by remember { mutableStateOf(ExerciseType.SQUAT) }
+    // 운동 타입 선택 — exerciseCounter에서 초기화
+    var selectedExerciseType by remember {
+        mutableStateOf(
+            when (exerciseCounter.getExerciseType()) {
+                ExerciseCounter.Companion.ExerciseType.SQUAT  -> ExerciseType.SQUAT
+                ExerciseCounter.Companion.ExerciseType.PUSHUP -> ExerciseType.PUSHUP
+                ExerciseCounter.Companion.ExerciseType.PLANK  -> ExerciseType.PLANK
+            }
+        )
+    }
 
     // 운동 감지기들
     val squatDetector = remember { SquatDetector() }
@@ -141,6 +167,64 @@ private fun CameraPreviewWithPoseDetection(
 
     LaunchedEffect(Unit) {
         workoutTimer.start()
+    }
+
+    // ── 테스트 모드: good-form 프레임 추적 ─────────────────────
+    val testFrameTotal = remember { AtomicInteger(0) }
+    val testFrameGoodForm = remember { AtomicInteger(0) }
+    var testCompleted by remember { mutableStateOf(false) }
+
+    // snapshotFlow로 매 포즈 결과마다 good-form 여부 집계
+    if (isTestMode) {
+        LaunchedEffect(Unit) {
+            snapshotFlow {
+                when (selectedExerciseType) {
+                    ExerciseType.SQUAT  -> squatResult?.isGoodForm
+                    ExerciseType.PUSHUP -> pushUpResult?.isGoodForm
+                    ExerciseType.PLANK  -> plankResult?.isGoodForm
+                }
+            }.collect { isGood ->
+                if (!testCompleted) {
+                    testFrameTotal.incrementAndGet()
+                    if (isGood == true) testFrameGoodForm.incrementAndGet()
+                }
+            }
+        }
+    }
+
+    // 테스트 완료 헬퍼
+    fun finishTest() {
+        if (testCompleted) return
+        testCompleted = true
+        // stop() 이전에 elapsed 저장 (stop()이 내부 값을 0으로 리셋함)
+        val elapsedSecs = workoutTimer.getElapsedSeconds()
+        workoutTimer.stop()
+        val formAcc = if (testFrameTotal.get() > 0)
+            testFrameGoodForm.get().toFloat() / testFrameTotal.get() else 0f
+        val reps = when (selectedExerciseType) {
+            ExerciseType.SQUAT  -> squatResult?.count ?: 0
+            ExerciseType.PUSHUP -> pushUpResult?.count ?: 0
+            ExerciseType.PLANK  -> 0
+        }
+        val plankSecs = (plankResult?.duration ?: 0L) / 1000L
+        onTestComplete(
+            TestResult(
+                exerciseType           = selectedExerciseType.name,
+                detectedReps           = reps,
+                targetReps             = if (selectedExerciseType == ExerciseType.PLANK) 0 else 5,
+                formAccuracy           = formAcc,
+                durationSeconds        = elapsedSecs,
+                plankInPositionSeconds = plankSecs
+            )
+        )
+    }
+
+    // 플랭크 테스트: 30초 자동완료
+    if (isTestMode && selectedExerciseType == ExerciseType.PLANK) {
+        LaunchedEffect(Unit) {
+            delay(30_000L)
+            finishTest()
+        }
     }
 
     val cameraExecutor = remember { Executors.newSingleThreadExecutor() }
@@ -279,52 +363,31 @@ private fun CameraPreviewWithPoseDetection(
                 .padding(bottom = 32.dp)
         )
 
-        // UI 오버레이 (카운터, 피드백) - 운동 타입에 따라 다르게 표시
-        when (selectedExerciseType) {
-            ExerciseType.SQUAT -> {
-                ExerciseInfoOverlay(
-                    counterResult = counterResult,
-                    squatResult = squatResult,
-                    formattedTime = formattedTime,
-                    exerciseType = selectedExerciseType,
-                    modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        .padding(end = 72.dp)  // 나가기 버튼 공간 확보
-                )
+        // 테스트 모드: 스쿼트/푸시업 5회 달성 시 자동 완료
+        if (isTestMode && selectedExerciseType != ExerciseType.PLANK) {
+            val testCount = when (selectedExerciseType) {
+                ExerciseType.SQUAT  -> squatResult?.count ?: 0
+                ExerciseType.PUSHUP -> pushUpResult?.count ?: 0
+                else                -> 0
             }
-            ExerciseType.PUSHUP -> {
-                PushUpInfoOverlay(
-                    pushUpResult = pushUpResult,
-                    formattedTime = formattedTime,
-                    modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        .padding(end = 72.dp)  // 나가기 버튼 공간 확보
-                )
-            }
-            ExerciseType.PLANK -> {
-                PlankInfoOverlay(
-                    plankResult = plankResult,
-                    modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        .padding(end = 72.dp)  // 나가기 버튼 공간 확보
-                )
+            LaunchedEffect(testCount) {
+                if (testCount >= 5) finishTest()
             }
         }
 
-        // 나가기 버튼 (우측 상단)
-        ExitButton(
-            onClick = {
+        // 상단 정보 바: 타이머 + 카운트(중앙) + X 버튼(우측)
+        TopInfoBar(
+            formattedTime = formattedTime,
+            exerciseType = selectedExerciseType,
+            counterResult = counterResult,
+            pushUpResult = pushUpResult,
+            plankResult = plankResult,
+            isTestMode = isTestMode,
+            onExit = {
                 workoutTimer.stop()
-                val finalCount = when (selectedExerciseType) {
-                    ExerciseType.SQUAT -> squatResult?.count ?: 0
-                    ExerciseType.PUSHUP -> pushUpResult?.count ?: 0
-                    ExerciseType.PLANK -> 0  // 플랭크는 카운트가 아닌 시간
-                }
-                onExitWorkout(finalCount, workoutTimer.getElapsedSeconds())
+                onNavigateBack()
             },
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(16.dp)
+            modifier = Modifier.align(Alignment.TopCenter)
         )
 
         // 카메라 초기화 로딩 표시
@@ -525,170 +588,138 @@ private fun createPoseDetector(): PoseDetector {
 }
 
 /**
- * 스쿼트 운동 정보 오버레이
+ * 상단 정보 바: [빈 공간] [타이머 + 카운트] [X 버튼]
+ * - 그라디언트 배경 (상단 불투명 → 하단 투명)
  */
 @Composable
-private fun ExerciseInfoOverlay(
-    counterResult: ExerciseCounter.CounterResult,
-    squatResult: SquatDetector.SquatResult?,
+private fun TopInfoBar(
     formattedTime: String,
     exerciseType: ExerciseType,
+    counterResult: ExerciseCounter.CounterResult,
+    pushUpResult: PushUpDetector.PushUpResult?,
+    plankResult: PlankDetector.PlankResult?,
+    onExit: () -> Unit,
+    isTestMode: Boolean = false,
     modifier: Modifier = Modifier
 ) {
-    Column(
+    val rawCount = when (exerciseType) {
+        ExerciseType.SQUAT  -> counterResult.count
+        ExerciseType.PUSHUP -> pushUpResult?.count ?: 0
+        ExerciseType.PLANK  -> 0
+    }
+    val countText = when {
+        isTestMode && exerciseType == ExerciseType.PLANK ->
+            // 플랭크 테스트: 유지 시간 / 목표 30초
+            "${(plankResult?.duration ?: 0L) / 1000L}초 / 30초"
+        isTestMode ->
+            "$rawCount / 5"
+        exerciseType == ExerciseType.PLANK ->
+            formatPlankTime(plankResult?.duration ?: 0L)
+        else ->
+            "${rawCount}회"
+    }
+
+    Box(
         modifier = modifier
             .fillMaxWidth()
-            .padding(16.dp)
-            .background(Color.Black.copy(alpha = 0.7f), shape = RoundedCornerShape(20.dp))
-            .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(
+                        Color.Black.copy(alpha = 0.65f),
+                        Color.Transparent
+                    )
+                )
+            )
+            .padding(horizontal = 16.dp, vertical = 20.dp)
     ) {
-        // 타이머
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center,
-            modifier = Modifier.padding(bottom = 16.dp)
+        // 타이머 + 카운트 (중앙)
+        Column(
+            modifier = Modifier.align(Alignment.Center),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(
-                text = "⏱️",
-                style = MaterialTheme.typography.headlineSmall
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = formattedTime,
-                style = MaterialTheme.typography.headlineMedium.copy(
-                    fontWeight = FontWeight.Bold
-                ),
-                color = Color(0xFF4CAF50)
-            )
-        }
-
-        HorizontalDivider(color = Color.White.copy(alpha = 0.3f), thickness = 2.dp)
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // 반복 카운트 (대형 표시)
-        Text(
-            text = "${counterResult.count}",
-            style = MaterialTheme.typography.displayLarge.copy(
-                fontSize = 72.sp,
-                fontWeight = FontWeight.Bold
-            ),
-            color = Color.White
-        )
-
-        Text(
-            text = "회",
-            style = MaterialTheme.typography.titleLarge,
-            color = Color.White.copy(alpha = 0.7f)
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // 현재 상태
-        Card(
-            colors = CardDefaults.cardColors(
-                containerColor = when (counterResult.state) {
-                    ExerciseCounter.Companion.State.DOWN_PHASE -> Color(0xFF2196F3)
-                    ExerciseCounter.Companion.State.UP_PHASE -> Color(0xFF4CAF50)
-                    else -> Color(0xFF9E9E9E)
-                }.copy(alpha = 0.8f)
-            ),
-            shape = RoundedCornerShape(12.dp)
-        ) {
-            Text(
-                text = when (counterResult.state) {
-                    ExerciseCounter.Companion.State.IDLE -> "준비"
-                    ExerciseCounter.Companion.State.DOWN_PHASE -> "하강 중 ⬇️"
-                    ExerciseCounter.Companion.State.UP_PHASE -> "상승 중 ⬆️"
-                    else -> "대기"
-                },
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.Bold
-                ),
-                color = Color.White,
-                modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp)
-            )
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // 자세 피드백
-        Text(
-            text = counterResult.feedback,
-            style = MaterialTheme.typography.bodyLarge.copy(
-                fontWeight = FontWeight.Medium
-            ),
-            color = if (counterResult.isGoodForm) Color(0xFF4CAF50) else Color(0xFFFF5722),
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(horizontal = 8.dp)
-        )
-
-        // 스쿼트 세부 정보 (선택적)
-        if (exerciseType == ExerciseType.SQUAT && squatResult != null) {
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            // 테스트 모드 배지
+            if (isTestMode) {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color(0xFFFF9800).copy(alpha = 0.9f),
+                    modifier = Modifier.padding(bottom = 4.dp)
+                ) {
                     Text(
-                        text = "왼쪽 무릎",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.White.copy(alpha = 0.6f)
-                    )
-                    Text(
-                        text = "${squatResult.leftKneeAngle.toInt()}°",
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold
-                        ),
-                        color = Color.White
-                    )
-                }
-
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = "오른쪽 무릎",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.White.copy(alpha = 0.6f)
-                    )
-                    Text(
-                        text = "${squatResult.rightKneeAngle.toInt()}°",
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold
-                        ),
-                        color = Color.White
+                        text = "테스트 모드",
+                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                        color = Color.White,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp)
                     )
                 }
             }
+            Text(
+                text = formattedTime,
+                style = MaterialTheme.typography.headlineMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 28.sp
+                ),
+                color = Color(0xFF4CAF50)
+            )
+            Text(
+                text = countText,
+                style = MaterialTheme.typography.displaySmall.copy(
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 48.sp
+                ),
+                color = Color.White
+            )
         }
+
+        // X 버튼 (우측)
+        ExitButton(
+            onClick = onExit,
+            modifier = Modifier.align(Alignment.CenterEnd)
+        )
     }
 }
 
 /**
  * 나가기 버튼 (우측 상단)
+ * - 48dp 터치 영역 유지, 시각적 원은 ~34dp (30% 축소)
+ * - 프레스 시 스케일 애니메이션
  */
 @Composable
 private fun ExitButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    IconButton(
-        onClick = onClick,
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.85f else 1f,
+        animationSpec = tween(durationMillis = 100),
+        label = "exitButtonScale"
+    )
+
+    Box(
         modifier = modifier
             .size(48.dp)
-            .background(
-                color = Color(0xFFFF5722),
-                shape = CircleShape
-            )
+            .scale(scale)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick
+            ),
+        contentAlignment = Alignment.Center
     ) {
-        Icon(
-            imageVector = Icons.Default.Close,
-            contentDescription = "나가기",
-            tint = Color.White,
-            modifier = Modifier.size(32.dp)
-        )
+        Box(
+            modifier = Modifier
+                .size(34.dp)
+                .background(color = Color(0xFFFF5722), shape = CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.Close,
+                contentDescription = "나가기",
+                tint = Color.White,
+                modifier = Modifier.size(20.dp)
+            )
+        }
     }
 }
 
@@ -717,257 +748,6 @@ private fun PermissionDeniedScreen(
             Button(onClick = onRequestPermission) {
                 Text("권한 요청")
             }
-        }
-    }
-}
-
-/**
- * 푸시업 정보 오버레이
- */
-@Composable
-private fun PushUpInfoOverlay(
-    pushUpResult: PushUpDetector.PushUpResult?,
-    formattedTime: String,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(16.dp)
-            .background(Color.Black.copy(alpha = 0.7f), shape = RoundedCornerShape(20.dp))
-            .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        // 타이머
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(bottom = 16.dp)
-        ) {
-            Text(text = "⏱️", style = MaterialTheme.typography.headlineSmall)
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = formattedTime,
-                style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
-                color = Color(0xFF4CAF50)
-            )
-        }
-
-        HorizontalDivider(color = Color.White.copy(alpha = 0.3f), thickness = 2.dp)
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // 카운트
-        Text(
-            text = "${pushUpResult?.count ?: 0}",
-            style = MaterialTheme.typography.displayLarge.copy(
-                fontSize = 72.sp,
-                fontWeight = FontWeight.Bold
-            ),
-            color = Color.White
-        )
-        Text(
-            text = "회",
-            style = MaterialTheme.typography.titleLarge,
-            color = Color.White.copy(alpha = 0.7f)
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // 상태
-        if (pushUpResult != null) {
-            Card(
-                colors = CardDefaults.cardColors(
-                    containerColor = when (pushUpResult.state) {
-                        PushUpState.DOWN -> Color(0xFF2196F3)
-                        PushUpState.UP -> Color(0xFF4CAF50)
-                        PushUpState.DESCENDING, PushUpState.ASCENDING -> Color(0xFF9E9E9E)
-                    }.copy(alpha = 0.8f)
-                ),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text(
-                    text = when (pushUpResult.state) {
-                        PushUpState.UP -> "준비 ✅"
-                        PushUpState.DESCENDING -> "하강 중 ⬇️"
-                        PushUpState.DOWN -> "최하단 💪"
-                        PushUpState.ASCENDING -> "상승 중 ⬆️"
-                    },
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                    color = Color.White,
-                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // 피드백
-            Text(
-                text = pushUpResult.feedback,
-                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
-                color = if (pushUpResult.isGoodForm) Color(0xFF4CAF50) else Color(0xFFFF5722),
-                textAlign = TextAlign.Center
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // 팔 각도
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = "왼팔",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.White.copy(alpha = 0.6f)
-                    )
-                    Text(
-                        text = "${pushUpResult.leftElbowAngle.toInt()}°",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        color = Color.White
-                    )
-                }
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = "오른팔",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.White.copy(alpha = 0.6f)
-                    )
-                    Text(
-                        text = "${pushUpResult.rightElbowAngle.toInt()}°",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        color = Color.White
-                    )
-                }
-            }
-        } else {
-            Text(
-                text = "푸시업 자세를 취하세요",
-                style = MaterialTheme.typography.bodyLarge,
-                color = Color.White.copy(alpha = 0.7f)
-            )
-        }
-    }
-}
-
-/**
- * 플랭크 정보 오버레이
- */
-@Composable
-private fun PlankInfoOverlay(
-    plankResult: PlankDetector.PlankResult?,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(16.dp)
-            .background(Color.Black.copy(alpha = 0.7f), shape = RoundedCornerShape(20.dp))
-            .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        // 타이머 (대형 표시)
-        Text(
-            text = formatPlankTime(plankResult?.duration ?: 0L),
-            style = MaterialTheme.typography.displayLarge.copy(
-                fontSize = 72.sp,
-                fontWeight = FontWeight.Bold
-            ),
-            color = Color.White
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // 상태
-        if (plankResult != null) {
-            Card(
-                colors = CardDefaults.cardColors(
-                    containerColor = when (plankResult.state) {
-                        PlankState.IN_POSITION -> Color(0xFF4CAF50)
-                        PlankState.HIPS_TOO_HIGH, PlankState.HIPS_TOO_LOW -> Color(0xFFFF9800)
-                        PlankState.NOT_IN_POSITION -> Color(0xFF9E9E9E)
-                    }.copy(alpha = 0.8f)
-                ),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text(
-                    text = when (plankResult.state) {
-                        PlankState.IN_POSITION -> "완벽한 자세! 💯"
-                        PlankState.HIPS_TOO_HIGH -> "엉덩이 ↓"
-                        PlankState.HIPS_TOO_LOW -> "엉덩이 ↑"
-                        PlankState.NOT_IN_POSITION -> "자세 준비"
-                    },
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                    color = Color.White,
-                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // 피드백
-            Text(
-                text = plankResult.feedback,
-                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
-                color = if (plankResult.isGoodForm) Color(0xFF4CAF50) else Color(0xFFFF5722),
-                textAlign = TextAlign.Center
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // 몸 각도
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = "몸 정렬도",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.White.copy(alpha = 0.6f)
-                )
-                Text(
-                    text = "${plankResult.bodyAngle.toInt()}°",
-                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                    color = Color.White
-                )
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-            HorizontalDivider(color = Color.White.copy(alpha = 0.3f), thickness = 1.dp)
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // 최고 기록 / 총 시간
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = "최고 기록",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.White.copy(alpha = 0.6f)
-                    )
-                    Text(
-                        text = formatPlankTime(plankResult.bestDuration),
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        color = Color(0xFFFFD700)
-                    )
-                }
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = "총 시간",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.White.copy(alpha = 0.6f)
-                    )
-                    Text(
-                        text = formatPlankTime(plankResult.totalDuration),
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        color = Color.White
-                    )
-                }
-            }
-        } else {
-            Text(
-                text = "플랭크 자세를 취하세요",
-                style = MaterialTheme.typography.bodyLarge,
-                color = Color.White.copy(alpha = 0.7f)
-            )
         }
     }
 }

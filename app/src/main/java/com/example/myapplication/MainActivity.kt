@@ -3,12 +3,13 @@ package com.example.myapplication
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -53,6 +54,10 @@ fun ReFitApp() {
     var workoutCount by remember { mutableStateOf(0) }
     var workoutDuration by remember { mutableStateOf(0L) }
     var currentExerciseType by remember { mutableStateOf("SQUAT") }
+    var isTestMode by remember { mutableStateOf(false) }
+
+    // 테스트 결과 다이얼로그 상태
+    var testResultData by remember { mutableStateOf<TestResult?>(null) }
 
     NavHost(
         navController = navController,
@@ -77,10 +82,15 @@ fun ReFitApp() {
         composable("exercise_selection") {
             ExerciseSelectionScreen(
                 onExerciseSelected = { exerciseType ->
-                    // 운동 타입 설정
                     exerciseCounter.setExerciseType(exerciseType)
                     currentExerciseType = exerciseType.name
-                    // 카메라 화면으로 이동
+                    isTestMode = false
+                    navController.navigate("camera")
+                },
+                onTestExercise = { exerciseType ->
+                    exerciseCounter.setExerciseType(exerciseType)
+                    currentExerciseType = exerciseType.name
+                    isTestMode = true
                     navController.navigate("camera")
                 },
                 onNavigateBack = {
@@ -90,7 +100,12 @@ fun ReFitApp() {
         }
 
         // 카메라/운동 화면
-        composable("camera") {
+        composable(
+            route = "camera",
+            enterTransition = { slideInHorizontally(initialOffsetX = { it }) },
+            exitTransition = { slideOutHorizontally(targetOffsetX = { it }) },
+            popExitTransition = { slideOutHorizontally(targetOffsetX = { it }) }
+        ) {
             CameraScreen(
                 poseClassifier = poseClassifier,
                 exerciseCounter = exerciseCounter,
@@ -99,6 +114,18 @@ fun ReFitApp() {
                     workoutDuration = duration
                     showSummaryDialog = true
                 },
+                onNavigateBack = {
+                    exerciseCounter.reset()
+                    isTestMode = false
+                    navController.popBackStack()
+                },
+                onTestComplete = { result ->
+                    testResultData = result
+                    exerciseCounter.reset()
+                    isTestMode = false
+                    navController.popBackStack()
+                },
+                isTestMode = isTestMode,
                 modifier = Modifier.fillMaxSize()
             )
         }
@@ -160,6 +187,27 @@ fun ReFitApp() {
                 // 카운터 리셋
                 exerciseCounter.reset()
             }
+        )
+    }
+
+    // 테스트 결과 다이얼로그
+    testResultData?.let { result ->
+        TestResultDialog(
+            result = result,
+            onRetry = {
+                // 같은 운동 테스트 재시작
+                val type = when (result.exerciseType) {
+                    "SQUAT"  -> ExerciseCounter.Companion.ExerciseType.SQUAT
+                    "PUSHUP" -> ExerciseCounter.Companion.ExerciseType.PUSHUP
+                    else     -> ExerciseCounter.Companion.ExerciseType.PLANK
+                }
+                exerciseCounter.setExerciseType(type)
+                currentExerciseType = result.exerciseType
+                isTestMode = true
+                testResultData = null
+                navController.navigate("camera")
+            },
+            onDismiss = { testResultData = null }
         )
     }
 

@@ -25,7 +25,15 @@
       "Bash(findstr:*)",
       "Bash(cmd.exe /c \"gradlew.bat assembleDebug 2>&1 | findstr /I /C:\"\"BUILD\"\" /C:\"\"error\"\" /C:\"\"warning\"\" /C:\"\"FAILED\"\" /C:\"\"SUCCESS\"\"\")",
       "Bash(cmd.exe /c \"gradlew.bat assembleDebug\")",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git push:*)",
+      "Bash(cmd.exe /c \"gradlew.bat clean build --no-daemon 2>&1 | findstr /I /C:\"\"BUILD\"\" /C:\"\"SUCCESS\"\" /C:\"\"FAILED\"\" /C:\"\"error\"\" /C:\"\"FAILURE\"\"\")",
+      "Bash(cmd.exe /c \"gradlew.bat build --stacktrace\")",
+      "Bash(cmd.exe /c \"gradlew.bat assembleDebug --info 2>&1 | findstr /I /C:\"\"BUILD\"\" /C:\"\"compileDebugKotlin\"\" /C:\"\"kaptGenerateStubsDebugKotlin\"\" /C:\"\"error\"\" /C:\"\"FAILURE\"\"\")",
+      "Bash(cmd.exe /c \"dir gradlew.bat\")",
+      "Bash(cmd.exe /c \"C:\\Users\\shuva\\AndroidStudioProjects\\Re_fit\\build_test.bat\")",
+      "Bash(cmd.exe /c \"C:\\Users\\shuva\\AndroidStudioProjects\\Re_fit\\build_test.bat 2>&1\")",
+      "Bash(git pull:*)"
     ],
     "deny": [],
     "ask": []
